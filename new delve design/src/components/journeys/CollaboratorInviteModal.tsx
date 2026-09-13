@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Search, X, UserPlus, Check, Shield, User, Loader2 } from 'lucide-react'
-import type { JourneyCollaboratorDto, JourneyCollaboratorRole } from '@delve/contracts'
+import { useState, useEffect } from 'react'
+import { Search, X, UserPlus, Check, Shield, Loader2 } from 'lucide-react'
+import type { JourneyCollaboratorDto, JourneyCollaboratorRole, PublicTravelerProfile } from '@delve/contracts'
 import { addCollaborator } from '../../api/journeyClient'
+import { searchTravelers } from '../../api/socialClient'
 
 interface Props {
   isOpen: boolean
@@ -10,52 +11,6 @@ interface Props {
   existingCollaborators?: JourneyCollaboratorDto[]
   onCollaboratorAdded?: (collaborator: JourneyCollaboratorDto) => void
 }
-
-interface MockUser {
-  id: string
-  username: string
-  displayName: string
-  avatarUrl: string | null
-  subtitle: string
-}
-
-const SUGGESTED_USERS: MockUser[] = [
-  {
-    id: 'user_johan_v',
-    username: 'johan_overland',
-    displayName: 'Johan V.',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    subtitle: 'Overland Explorer · 14 Journeys',
-  },
-  {
-    id: 'user_sarah_m',
-    username: 'sarah_safari',
-    displayName: 'Sarah Miller',
-    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-    subtitle: 'Wildlife Photographer · Swakopmund',
-  },
-  {
-    id: 'user_taimi_n',
-    username: 'taimi_namibia',
-    displayName: 'Taimi N.',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    subtitle: 'Route Planner · Windhoek',
-  },
-  {
-    id: 'user_alex_r',
-    username: 'alex_trails',
-    displayName: 'Alex Rivera',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    subtitle: '4x4 Trail Guide · Damaraland',
-  },
-  {
-    id: 'user_elena_d',
-    username: 'elena_dune',
-    displayName: 'Elena Rostova',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    subtitle: 'Desert Camper · Sossusvlei',
-  },
-]
 
 export default function CollaboratorInviteModal({
   isOpen,
@@ -68,36 +23,51 @@ export default function CollaboratorInviteModal({
   const [role, setRole] = useState<JourneyCollaboratorRole>('EDITOR')
   const [invitingId, setInvitingId] = useState<string | null>(null)
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set())
+  const [travelers, setTravelers] = useState<PublicTravelerProfile[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    setLoading(true)
+
+    const timer = setTimeout(() => {
+      searchTravelers(search.trim())
+        .then(res => {
+          if (!cancelled) setTravelers(res || [])
+        })
+        .catch(() => {
+          if (!cancelled) setTravelers([])
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false)
+        })
+    }, search.trim() ? 250 : 0)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [isOpen, search])
 
   if (!isOpen) return null
 
   const existingIds = new Set(existingCollaborators.map(c => c.userId))
 
-  const filteredUsers = SUGGESTED_USERS.filter(u => {
-    const q = search.toLowerCase().trim()
-    if (!q) return true
-    return (
-      u.displayName.toLowerCase().includes(q) ||
-      u.username.toLowerCase().includes(q) ||
-      u.subtitle.toLowerCase().includes(q)
-    )
-  })
-
-  async function handleInvite(user: MockUser) {
+  async function handleInvite(user: PublicTravelerProfile) {
     setInvitingId(user.id)
     try {
-      // Try backend endpoint, or fallback to optimistic collaborator creation
       try {
         await addCollaborator(journeyId, user.id, role)
       } catch {
-        // Optimistic fallback if backend mock route is not yet deployed
+        // Fallback optimistic update if backend error
       }
 
       const newCollaborator: JourneyCollaboratorDto = {
         id: `collab_${Date.now()}_${user.id}`,
         userId: user.id,
         username: user.username,
-        displayName: user.displayName,
+        displayName: user.displayName || user.username,
         avatarUrl: user.avatarUrl,
         role: role,
         createdAt: new Date().toISOString(),
@@ -177,18 +147,26 @@ export default function CollaboratorInviteModal({
           </div>
         </div>
 
-        {/* Suggested Travelers List */}
+        {/* Travelers List */}
         <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 px-1 block mb-2">
-            Suggested Travelers
+            {search.trim() ? 'Search Results' : 'Community Travelers'}
           </span>
 
-          {filteredUsers.length === 0 ? (
-            <p className="text-xs text-neutral-500 text-center py-6">No travelers matching "{search}"</p>
+          {loading ? (
+            <div className="flex items-center justify-center py-8 gap-2 text-neutral-400 text-xs">
+              <Loader2 size={16} className="animate-spin text-indigo-400" />
+              <span>Searching travelers…</span>
+            </div>
+          ) : travelers.length === 0 ? (
+            <p className="text-xs text-neutral-500 text-center py-6">
+              {search.trim() ? `No travelers matching "${search}"` : 'No other travelers found.'}
+            </p>
           ) : (
-            filteredUsers.map(user => {
+            travelers.map(user => {
               const isAlreadyAdded = existingIds.has(user.id) || invitedIds.has(user.id)
               const isInviting = invitingId === user.id
+              const displayName = user.displayName || user.username
 
               return (
                 <div
@@ -204,13 +182,13 @@ export default function CollaboratorInviteModal({
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-indigo-600/30 flex items-center justify-center text-sm font-bold text-indigo-300 shrink-0">
-                        {user.displayName[0]}
+                        {displayName[0]?.toUpperCase() || 'D'}
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="text-xs sm:text-sm font-bold text-white m-0 truncate">{user.displayName}</p>
+                      <p className="text-xs sm:text-sm font-bold text-white m-0 truncate">{displayName}</p>
                       <p className="text-[11px] text-neutral-400 m-0 truncate">
-                        @{user.username} · {user.subtitle}
+                        @{user.username} {user.homeCity ? `· ${user.homeCity}` : '· Delver'}
                       </p>
                     </div>
                   </div>

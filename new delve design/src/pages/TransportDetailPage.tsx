@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ArrowLeft, MapPin, Clock, Users, Luggage, CheckCircle, Info,
   Star, Heart, Bookmark, Share2, ChevronRight, ChevronLeft,
@@ -7,7 +7,8 @@ import {
   ArrowRight, X, Plus, Minus, ExternalLink,
 } from 'lucide-react'
 import { type TransportResult } from '../data/transportData'
-import { transportResults } from '../data/transportData'
+import { fetchListing } from '../api/listingClient'
+import { SkeletonCard } from '../components/SectionStates'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -27,54 +28,6 @@ const modeIcon: Record<string, React.ReactNode> = {
   'Charter flight':   <Plane size={16} />,
   'Ferry':            <Anchor size={16} />,
   'Water taxi':       <Anchor size={16} />,
-}
-
-const operatorAvatars: Record<string, string> = {
-  'Namibia Car Hire Co.':       'https://images.unsplash.com/photo-1635858780418-2eeb9e75768f?w=80&h=80&fit=crop&auto=format',
-  'Selma K.':                   'https://images.unsplash.com/photo-1557002665-c552e1832483?w=80&h=80&fit=crop&auto=format',
-  'Johannes M.':                'https://images.unsplash.com/photo-1569342515654-a51ab4b2b050?w=80&h=80&fit=crop&auto=format',
-  'Intercape Namibia':          'https://images.unsplash.com/photo-1678038541432-a5b25b41591e?w=80&h=80&fit=crop&auto=format',
-  'SwiftShuttle NM':            'https://images.unsplash.com/photo-1665314673834-635d0fedab32?w=80&h=80&fit=crop&auto=format',
-  'Westair Aviation':           'https://images.unsplash.com/photo-1695302938665-1853a2c35994?w=80&h=80&fit=crop&auto=format',
-  'Namibia Air Charter':        'https://images.unsplash.com/photo-1695302938630-929b584ae6f2?w=80&h=80&fit=crop&auto=format',
-  'Walvis Bay Ferry Services':  'https://images.unsplash.com/photo-1678666701965-51d6fd32695b?w=80&h=80&fit=crop&auto=format',
-  'Swakop Bay Transfers':       'https://images.unsplash.com/photo-1544632688-712e150321a5?w=80&h=80&fit=crop&auto=format',
-}
-
-const operatorRatings: Record<string, { rating: number; reviews: number }> = {
-  'Namibia Car Hire Co.':       { rating: 4.7, reviews: 312 },
-  'Selma K.':                   { rating: 4.4, reviews: 28 },
-  'Johannes M.':                { rating: 4.9, reviews: 87 },
-  'Intercape Namibia':          { rating: 4.3, reviews: 641 },
-  'SwiftShuttle NM':            { rating: 4.8, reviews: 194 },
-  'Westair Aviation':           { rating: 4.6, reviews: 520 },
-  'Namibia Air Charter':        { rating: 4.5, reviews: 43 },
-  'Walvis Bay Ferry Services':  { rating: 4.2, reviews: 189 },
-  'Swakop Bay Transfers':       { rating: 3.9, reviews: 34 },
-}
-
-// ─── Mock reviews ─────────────────────────────────────────────────────────
-
-const mockReviews: Record<string, { author: string; avatar: string; rating: number; date: string; body: string }[]> = {
-  r1: [
-    { author: 'Lena B.', avatar: 'https://images.unsplash.com/photo-1582152629442-4a864303fb96?w=60&h=60&fit=crop&auto=format', rating: 5, date: 'Jul 2026', body: 'Pickup was smooth and the car was in great condition. Would use again for Namibia road trips.' },
-    { author: 'Marcus V.', avatar: 'https://images.unsplash.com/photo-1537430802614-118bf14be50c?w=60&h=60&fit=crop&auto=format', rating: 4, date: 'Jun 2026', body: 'Good value. The 4x4 handled the gravel roads well. Return process was quick.' },
-  ],
-  r2: [
-    { author: 'Theo P.', avatar: 'https://images.unsplash.com/photo-1569342515654-a51ab4b2b050?w=60&h=60&fit=crop&auto=format', rating: 4, date: 'Aug 2026', body: 'Selma was punctual and friendly. Car was comfortable. Agreed the route before departure.' },
-  ],
-  r3: [
-    { author: 'Amara S.', avatar: 'https://images.unsplash.com/photo-1599628489211-2e6e0a9cbb05?w=60&h=60&fit=crop&auto=format', rating: 5, date: 'Jul 2026', body: 'Johannes is fantastic. Professional, knows the roads, and offered great local tips along the way.' },
-    { author: 'Priya K.', avatar: 'https://images.unsplash.com/photo-1712673363487-4f5e529df0b3?w=60&h=60&fit=crop&auto=format', rating: 5, date: 'Jul 2026', body: 'Absolutely recommend. Comfortable ride, great conversation, right on time.' },
-  ],
-  r4: [
-    { author: 'Clara M.', avatar: 'https://images.unsplash.com/photo-1557002665-c552e1832483?w=60&h=60&fit=crop&auto=format', rating: 4, date: 'Aug 2026', body: 'Bus was clean and on time. Seats are comfortable enough for the 4-hour ride. Bring snacks.' },
-  ],
-  r5: [{ author: 'Lena B.', avatar: 'https://images.unsplash.com/photo-1582152629442-4a864303fb96?w=60&h=60&fit=crop&auto=format', rating: 5, date: 'Jul 2026', body: 'Driver was waiting at arrivals with a sign. Smooth ride into town.' }],
-  a1: [{ author: 'Marcus V.', avatar: 'https://images.unsplash.com/photo-1537430802614-118bf14be50c?w=60&h=60&fit=crop&auto=format', rating: 5, date: 'Jun 2026', body: 'Short flight, great views of the desert. Check-in was fast.' }],
-  a2: [],
-  w1: [{ author: 'Theo P.', avatar: 'https://images.unsplash.com/photo-1569342515654-a51ab4b2b050?w=60&h=60&fit=crop&auto=format', rating: 4, date: 'May 2026', body: 'Ferry was comfortable and punctual. Beautiful views of the lagoon.' }],
-  w2: [],
 }
 
 // ─── Mode-specific detail content ─────────────────────────────────────────
@@ -109,43 +62,16 @@ function boardingInstructions(result: TransportResult): string {
   return 'Arrive at the departure port or jetty 15 minutes before boarding. Have your booking reference and a valid ID. Life jackets are provided. Listen to the safety briefing before departure.'
 }
 
-// ─── Photo gallery ────────────────────────────────────────────────────────
-
-const extraImages: Record<string, string[]> = {
-  r1: [
-    'https://images.unsplash.com/photo-1772289093180-43894a9fc09d?w=900&h=600&fit=crop&auto=format',
-    'https://images.unsplash.com/photo-1510060662584-0fdbad3a0a5a?w=900&h=600&fit=crop&auto=format',
-    'https://images.unsplash.com/photo-1678038541432-a5b25b41591e?w=900&h=600&fit=crop&auto=format',
-  ],
-  a1: [
-    'https://images.unsplash.com/photo-1695302938665-1853a2c35994?w=900&h=600&fit=crop&auto=format',
-    'https://images.unsplash.com/photo-1695302938630-929b584ae6f2?w=900&h=600&fit=crop&auto=format',
-  ],
-  w1: [
-    'https://images.unsplash.com/photo-1678666701965-51d6fd32695b?w=900&h=600&fit=crop&auto=format',
-    'https://images.unsplash.com/photo-1544632688-712e150321a5?w=900&h=600&fit=crop&auto=format',
-  ],
-}
-
 // ─── Booking panel ────────────────────────────────────────────────────────
 
 function BookingPanel({ result, onBook }: { result: TransportResult; onBook?: (passengers: number) => void }) {
   const [passengers, setPassengers] = useState(1)
-  const color = groupColors[result.transportGroup]
+  const color = groupColors[result.transportGroup] ?? '#8C52FF'
 
   const totalNote =
     result.priceBasis === 'day' ? `N$ ${result.price} × ${passengers} day${passengers > 1 ? 's' : ''}` :
     result.priceBasis === 'transfer' || result.priceBasis === 'charter' ? `Fixed price` :
     `N$ ${result.price} × ${passengers} traveler${passengers > 1 ? 's' : ''}`
-
-  const actionLabel =
-    result.transportMode === 'Car rental' ? 'Reserve vehicle' :
-    result.transportMode === 'Community ride' ? 'Request seat' :
-    result.transportMode === 'Private driver' ? 'Request ride' :
-    result.transportMode === 'Bus' ? 'Choose seats & pay' :
-    result.transportMode === 'Airport transfer' ? 'Request transfer' :
-    result.bookingMethod === 'external' ? 'Continue to operator' :
-    result.bookingMethod === 'request' ? 'Send request' : 'Book now'
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
@@ -194,7 +120,7 @@ function BookingPanel({ result, onBook }: { result: TransportResult; onBook?: (p
             <span className="tabular-nums font-medium" style={{ color: 'var(--fg)' }}>
               {result.currency} {result.priceBasis === 'transfer' || result.priceBasis === 'charter'
                 ? result.price
-                : (parseInt(result.price.replace(/\s/g, '')) * passengers).toLocaleString()}
+                : (parseInt(result.price.replace(/\s/g, '')) * passengers || result.price).toLocaleString()}
             </span>
           </div>
           <div className="flex items-center justify-between text-xs" style={{ color: 'var(--fg-muted)' }}>
@@ -206,7 +132,7 @@ function BookingPanel({ result, onBook }: { result: TransportResult; onBook?: (p
             <span className="tabular-nums">
               {result.currency} {result.priceBasis === 'transfer' || result.priceBasis === 'charter'
                 ? result.price
-                : (parseInt(result.price.replace(/\s/g, '')) * passengers).toLocaleString()}
+                : (parseInt(result.price.replace(/\s/g, '')) * passengers || result.price).toLocaleString()}
             </span>
           </div>
         </div>
@@ -218,25 +144,26 @@ function BookingPanel({ result, onBook }: { result: TransportResult; onBook?: (p
         </p>
 
         {/* CTA */}
-        <a
-          href="tel:+26481000000"
-          className="w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 hover:opacity-90 no-underline"
+        <button
+          type="button"
+          onClick={() => onBook?.(passengers)}
+          className="w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 hover:opacity-90 cursor-pointer"
           style={{
             background: color === '#8C52FF' ? 'var(--primary)' : color,
             color: '#fff',
             minHeight: 48,
+            border: 'none',
           }}>
-          <span>Contact Operator</span>
-          <Phone size={14} />
-        </a>
+          <span>Book with Operator</span>
+        </button>
 
         {/* Contact */}
         <div className="flex gap-2">
-          <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95"
+          <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 cursor-pointer"
             style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}>
             <MessageCircle size={15} /> Message
           </button>
-          <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95"
+          <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 cursor-pointer"
             style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}>
             <Phone size={15} /> Call
           </button>
@@ -254,25 +181,95 @@ function BookingPanel({ result, onBook }: { result: TransportResult; onBook?: (p
 
 interface Props {
   resultId: string
+  item?: TransportResult
   onBack: () => void
   onBook?: (passengers: number) => void
 }
 
-export default function TransportDetailPage({ resultId, onBack, onBook }: Props) {
-  const result = transportResults.find(r => r.id === resultId) ?? transportResults[0]
-  const color = groupColors[result.transportGroup]
-  const avatar = operatorAvatars[result.operator]
-  const ratingData = operatorRatings[result.operator]
-  const reviews = mockReviews[result.id] ?? []
-  const details = modeDetails(result)
-  const boarding = boardingInstructions(result)
-  const gallery = [result.image, ...(extraImages[result.id] ?? [])]
-  const similar = transportResults.filter(r => r.id !== result.id && r.transportGroup === result.transportGroup).slice(0, 3)
+export default function TransportDetailPage({ resultId, item, onBack, onBook }: Props) {
+  const [result, setResult] = useState<TransportResult | null>(item ?? null)
+  const [loading, setLoading] = useState(!item)
+
+  useEffect(() => {
+    if (item) {
+      setResult(item)
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+    fetchListing(resultId)
+      .then(dto => {
+        if (!cancelled && dto) {
+          const cover = dto.media?.find(m => m.isCover)?.delivery?.url || dto.media?.[0]?.delivery?.url || 'https://images.unsplash.com/photo-1544632688-712e150321a5?w=700&h=460&fit=crop&auto=format'
+          setResult({
+            id: dto.id,
+            transportGroup: 'road',
+            transportMode: 'Transport',
+            operator: dto.businessId || 'Operator',
+            operatorType: 'Verified provider',
+            operatorAvatar: 'https://images.unsplash.com/photo-1544632688-712e150321a5?w=80&h=80&fit=crop&auto=format',
+            origin: 'Windhoek',
+            destination: 'Namibia',
+            departure: 'Daily departures',
+            arrival: 'On schedule',
+            duration: 'Direct',
+            price: dto.pricing?.amount ? String(dto.pricing.amount) : 'Inquire',
+            currency: dto.pricing?.currency || 'NAD',
+            priceBasis: 'per trip',
+            capacity: 4,
+            luggage: 'Standard baggage',
+            accessibility: null,
+            verification: { verified: true, label: 'Verified Provider' },
+            cancellation: 'Flexible cancellation',
+            image: cover,
+            bookingMethod: 'request',
+            sponsored: false,
+            status: 'available',
+          })
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [resultId, item])
 
   const [galleryIndex, setGalleryIndex] = useState(0)
   const [saved, setSaved] = useState(false)
   const [liked, setLiked] = useState(false)
-  const [showFullGallery, setShowFullGallery] = useState(false)
+
+  if (loading) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <SkeletonCard height={360} />
+      </div>
+    )
+  }
+
+  if (!result) {
+    return (
+      <div className="p-8 max-w-md mx-auto text-center">
+        <p className="text-sm font-semibold mb-4" style={{ color: 'var(--fg-muted)' }}>Transport option not found</p>
+        <button onClick={onBack} className="px-4 py-2 rounded-xl text-xs font-bold" style={{ background: 'var(--primary)', color: '#fff' }}>
+          Back to transport
+        </button>
+      </div>
+    )
+  }
+
+  const color = groupColors[result.transportGroup] ?? '#8C52FF'
+  const avatar = result.operatorAvatar || 'https://images.unsplash.com/photo-1544632688-712e150321a5?w=80&h=80&fit=crop&auto=format'
+  const ratingData = result.operatorRating
+  const reviews: { author: string; avatar: string; rating: number; date: string; body: string }[] = []
+  const details = modeDetails(result)
+  const boarding = boardingInstructions(result)
+  const gallery = [result.image]
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100dvh' }}>
@@ -282,335 +279,86 @@ export default function TransportDetailPage({ resultId, onBack, onBook }: Props)
         style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
         <button onClick={onBack}
           className="flex items-center gap-2 text-sm font-medium transition-all hover:opacity-70 active:scale-95"
-          style={{ color: 'var(--fg)' }}>
-          <ArrowLeft size={18} /> Back
+          style={{ color: 'var(--fg)', background: 'none', border: 'none', cursor: 'pointer' }}>
+          <ArrowLeft size={18} />
+          <span>Transport</span>
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate" style={{ color: 'var(--fg)' }}>{result.operator}</p>
-          <p className="text-xs truncate" style={{ color: 'var(--fg-muted)' }}>
+          <p className="text-xs truncate font-semibold" style={{ color: 'var(--fg-muted)' }}>
             {result.origin} → {result.destination}
           </p>
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={() => setLiked(l => !l)} className="p-2.5 rounded-xl active:scale-95 transition-transform"
+        <div className="flex items-center gap-1">
+          <button onClick={() => setLiked(!liked)}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95"
+            style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: liked ? '#ef4444' : 'var(--fg-muted)' }}
             aria-label="Like">
-            <Heart size={20} fill={liked ? '#EF4444' : 'none'} style={{ color: liked ? '#EF4444' : 'var(--fg-muted)' }} />
+            <Heart size={16} fill={liked ? '#ef4444' : 'none'} />
           </button>
-          <button onClick={() => setSaved(s => !s)} className="p-2.5 rounded-xl active:scale-95 transition-transform"
-            aria-label={saved ? 'Unsave' : 'Save'}>
-            <Bookmark size={20} fill={saved ? 'var(--primary)' : 'none'} style={{ color: saved ? 'var(--primary)' : 'var(--fg-muted)' }} />
-          </button>
-          <button className="p-2.5 rounded-xl active:scale-95 transition-transform" aria-label="Share">
-            <Share2 size={20} style={{ color: 'var(--fg-muted)' }} />
+          <button onClick={() => setSaved(!saved)}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-95"
+            style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: saved ? 'var(--primary)' : 'var(--fg-muted)' }}
+            aria-label="Save">
+            <Bookmark size={16} fill={saved ? 'var(--primary)' : 'none'} />
           </button>
         </div>
       </div>
 
-      <div className="max-w-[1280px] mx-auto px-0 sm:px-4 md:px-6 py-0 sm:py-6 flex gap-8">
+      {/* ─── Photo carousel ─── */}
+      <div className="relative w-full max-w-4xl mx-auto overflow-hidden bg-black/20" style={{ height: '40vh', maxHeight: 380 }}>
+        <img src={gallery[galleryIndex]} alt={result.operator} className="w-full h-full object-cover" />
+      </div>
 
-        {/* ── LEFT / MAIN CONTENT ── */}
+      {/* ─── Body content ─── */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 flex flex-col lg:flex-row gap-8">
+        {/* Left column */}
         <div className="flex-1 min-w-0">
-
-          {/* ─── Photo gallery ─── */}
-          <div className="relative" style={{ background: '#111' }}>
-            <img
-              src={gallery[galleryIndex]}
-              alt={result.transportMode}
-              className="w-full object-cover sm:rounded-2xl"
-              style={{ maxHeight: '65vw', minHeight: 240 }}
-            />
-
-            {/* Nav arrows */}
-            {gallery.length > 1 && (
-              <>
-                <button
-                  onClick={() => setGalleryIndex(i => (i - 1 + gallery.length) % gallery.length)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95"
-                  style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}>
-                  <ChevronLeft size={18} />
-                </button>
-                <button
-                  onClick={() => setGalleryIndex(i => (i + 1) % gallery.length)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95"
-                  style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}>
-                  <ChevronRight size={18} />
-                </button>
-              </>
-            )}
-
-            {/* Dot indicators */}
-            {gallery.length > 1 && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                {gallery.map((_, i) => (
-                  <button key={i} onClick={() => setGalleryIndex(i)}
-                    className="rounded-full transition-all"
-                    style={{ width: i === galleryIndex ? 20 : 6, height: 6, background: i === galleryIndex ? '#fff' : 'rgba(255,255,255,0.45)' }} />
-                ))}
-              </div>
-            )}
-
-            {/* Transport mode badge */}
-            <div className="absolute top-4 left-4">
-              <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-bold"
-                style={{ background: `${color}dd`, color: '#fff', backdropFilter: 'blur(4px)' }}>
-                {modeIcon[result.transportMode]} {result.transportMode}
-              </span>
-            </div>
-
-            {/* Thumbnail strip */}
-            {gallery.length > 1 && (
-              <div className="absolute bottom-0 right-0 p-3 flex gap-1.5">
-                {gallery.slice(0, 3).map((img, i) => (
-                  <button key={i} onClick={() => setGalleryIndex(i)}
-                    className="overflow-hidden rounded-lg"
-                    style={{ width: 44, height: 44, border: `2px solid ${i === galleryIndex ? '#fff' : 'transparent'}`, opacity: i === galleryIndex ? 1 : 0.65 }}>
-                    <img src={img} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ─── Operator identity (social style) ─── */}
-          <div className="px-4 sm:px-0 py-4 flex items-start gap-4"
-            style={{ borderBottom: '1px solid var(--border)' }}>
-            <div className="relative flex-shrink-0">
-              <div className="w-14 h-14 rounded-full overflow-hidden"
-                style={{ border: `2.5px solid ${color}` }}>
-                <img src={avatar} alt={result.operator} className="w-full h-full object-cover" />
-              </div>
-              {result.verification.verified && (
-                <CheckCircle size={18} className="absolute -bottom-1 -right-1"
-                  style={{ color: 'var(--primary)', background: 'var(--surface)', borderRadius: '50%' }} />
-              )}
-            </div>
+          {/* Operator headline */}
+          <div className="flex items-center gap-3 pb-5" style={{ borderBottom: '1px solid var(--border)' }}>
+            <img src={avatar} alt={result.operator} className="w-12 h-12 rounded-full object-cover" style={{ border: `2px solid ${color}` }} />
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-extrabold leading-tight" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>
-                {result.operator}
-              </h1>
-              <p className="text-sm mb-1" style={{ color: 'var(--fg-muted)' }}>{result.operatorType}</p>
-              {ratingData && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} size={13}
-                        fill={i < Math.round(ratingData.rating) ? '#F59E0B' : 'none'}
-                        style={{ color: '#F59E0B' }} />
-                    ))}
-                  </div>
-                  <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--fg)' }}>{ratingData.rating}</span>
-                  <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>({ratingData.reviews} reviews)</span>
-                  {result.verification.verified && (
-                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold"
-                      style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
-                      <CheckCircle size={10} /> Verified
-                    </span>
-                  )}
-                </div>
-              )}
+              <h1 className="text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>{result.operator}</h1>
+              <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>{result.transportMode} · {result.origin} to {result.destination}</p>
             </div>
           </div>
 
-          {/* ─── Route summary ─── */}
-          <div className="px-4 sm:px-0 py-5" style={{ borderBottom: '1px solid var(--border)' }}>
-            <h2 className="text-base font-bold mb-4" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Route & schedule</h2>
-
-            {/* Visual route line */}
-            <div className="flex items-stretch gap-4 mb-4">
-              <div className="flex flex-col items-center gap-0" style={{ width: 20 }}>
-                <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ borderColor: color, background: 'var(--surface)' }} />
-                <div className="flex-1 w-0.5 my-1" style={{ background: `${color}44` }} />
-                <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ background: color }} />
-              </div>
-              <div className="flex-1 flex flex-col justify-between gap-6">
-                <div>
-                  <p className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{result.origin}</p>
-                  <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{result.departure}</p>
-                </div>
-                <div>
-                  <p className="text-base font-semibold" style={{ color: 'var(--fg)' }}>{result.destination}</p>
-                  <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{result.arrival}</p>
-                </div>
-              </div>
-              <div className="flex flex-col items-end justify-center flex-shrink-0">
-                <span className="text-xs px-2.5 py-1 rounded-full font-semibold"
-                  style={{ background: `${color}18`, color }}>
-                  {result.duration !== 'N/A' ? result.duration : 'Flexible'}
-                </span>
-              </div>
-            </div>
-
-            {/* Status banner */}
-            {result.status !== 'available' && (
-              <div className="flex items-center gap-2 p-3 rounded-xl"
-                style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }}>
-                <AlertCircle size={16} style={{ color: '#D97706' }} />
-                <p className="text-sm font-medium" style={{ color: '#D97706' }}>
-                  {result.status === 'on-request' ? 'This listing requires a request — the operator will confirm.' :
-                   result.status === 'delayed' ? 'This service is currently delayed. Check with the operator.' :
-                   'This service is currently sold out or unavailable.'}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* ─── Details grid ─── */}
-          <div className="px-4 sm:px-0 py-5" style={{ borderBottom: '1px solid var(--border)' }}>
-            <h2 className="text-base font-bold mb-4" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Details</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Details table */}
+          <div className="py-5" style={{ borderBottom: '1px solid var(--border)' }}>
+            <h2 className="text-base font-bold mb-3" style={{ color: 'var(--fg)' }}>Route details</h2>
+            <div className="grid grid-cols-2 gap-3 text-xs">
               {details.map(d => (
-                <div key={d.label} className="flex items-start gap-3 p-3 rounded-xl"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--fg-muted)' }}>{d.label}</p>
-                    <p className="text-sm font-medium" style={{ color: 'var(--fg)' }}>{d.value}</p>
-                  </div>
+                <div key={d.label} className="p-2.5 rounded-xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--fg-muted)' }}>{d.label}</span>
+                  <p className="font-semibold m-0 mt-0.5" style={{ color: 'var(--fg)' }}>{d.value}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ─── Boarding / pickup instructions ─── */}
-          <div className="px-4 sm:px-0 py-5" style={{ borderBottom: '1px solid var(--border)' }}>
-            <h2 className="text-base font-bold mb-3" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>
-              {result.transportGroup === 'air' ? 'Check-in & boarding' :
-               result.transportGroup === 'water' ? 'Boarding instructions' : 'Pickup instructions'}
-            </h2>
-            <p className="text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>{boarding}</p>
+          {/* Boarding instructions */}
+          <div className="py-5" style={{ borderBottom: '1px solid var(--border)' }}>
+            <h2 className="text-base font-bold mb-2" style={{ color: 'var(--fg)' }}>Boarding & check-in</h2>
+            <p className="text-xs leading-relaxed m-0" style={{ color: 'var(--fg-muted)' }}>{boarding}</p>
           </div>
 
-          {/* ─── Verification ─── */}
-          <div className="px-4 sm:px-0 py-5" style={{ borderBottom: '1px solid var(--border)' }}>
-            <h2 className="text-base font-bold mb-3" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Verification & trust</h2>
-            <div className="flex items-start gap-3 p-4 rounded-xl"
-              style={{ background: result.verification.verified ? 'rgba(140,82,255,0.06)' : 'rgba(245,158,11,0.06)', border: `1px solid ${result.verification.verified ? 'rgba(140,82,255,0.2)' : 'rgba(245,158,11,0.2)'}` }}>
-              {result.verification.verified
-                ? <CheckCircle size={18} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--primary)' }} />
-                : <Info size={18} className="flex-shrink-0 mt-0.5" style={{ color: '#D97706' }} />}
-              <div>
-                <p className="text-sm font-semibold mb-1" style={{ color: result.verification.verified ? 'var(--primary)' : '#D97706' }}>
-                  {result.verification.label}
-                </p>
-                <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-                  {result.verification.verified
-                    ? 'This operator has been reviewed and confirmed by Delve. Verification covers identity and registration only — it is not a guarantee of service quality, safety, or punctuality.'
-                    : 'This listing has not been independently verified by Delve. Proceed with care, confirm details directly with the operator, and agree on terms before payment.'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* ─── Terms & cancellation ─── */}
-          <div className="px-4 sm:px-0 py-5" style={{ borderBottom: '1px solid var(--border)' }}>
-            <h2 className="text-base font-bold mb-3" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Cancellation & terms</h2>
-            <div className="flex items-start gap-2.5 mb-3">
-              <Shield size={15} className="flex-shrink-0 mt-0.5" style={{ color: '#10A760' }} />
-              <p className="text-sm" style={{ color: 'var(--fg)' }}>{result.cancellation}</p>
-            </div>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
-              Final cancellation terms are set by the operator and confirmed at booking. Delve is not responsible for refunds or changes to operator-set policies. Always review the full terms before paying.
-            </p>
-          </div>
-
-          {/* ─── Reviews ─── */}
-          <div className="px-4 sm:px-0 py-5" style={{ borderBottom: '1px solid var(--border)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>
-                Reviews {ratingData && `· ${ratingData.rating} ★`}
-              </h2>
-              {reviews.length > 0 && (
-                <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{reviews.length} review{reviews.length !== 1 ? 's' : ''}</span>
-              )}
-            </div>
-
+          {/* Reviews section */}
+          <div className="py-5" style={{ borderBottom: '1px solid var(--border)' }}>
+            <h2 className="text-base font-bold mb-3" style={{ color: 'var(--fg)' }}>Traveler reviews</h2>
             {reviews.length === 0 ? (
               <div className="p-6 rounded-xl text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 <Star size={24} className="mx-auto mb-2" style={{ color: 'var(--border)' }} />
-                <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>No reviews yet for this listing.</p>
+                <p className="text-sm font-medium m-0" style={{ color: 'var(--fg-muted)' }}>No reviews yet for this transport operator.</p>
+                <p className="text-xs m-0 mt-1" style={{ color: 'var(--fg-muted)' }}>Verified traveler reviews will appear here after completed trips.</p>
               </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {reviews.map((rev, i) => (
-                  <div key={i} className="p-4 rounded-xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <img src={rev.avatar} alt={rev.author} className="w-9 h-9 rounded-full object-cover" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{rev.author}</p>
-                        <div className="flex items-center gap-2">
-                          <div className="flex">
-                            {Array.from({ length: 5 }).map((_, s) => (
-                              <Star key={s} size={11} fill={s < rev.rating ? '#F59E0B' : 'none'} style={{ color: '#F59E0B' }} />
-                            ))}
-                          </div>
-                          <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{rev.date}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-sm leading-relaxed" style={{ color: 'var(--fg)' }}>{rev.body}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            ) : null}
           </div>
-
-          {/* ─── Similar alternatives ─── */}
-          {similar.length > 0 && (
-            <div className="px-4 sm:px-0 py-5">
-              <h2 className="text-base font-bold mb-4" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>Similar {result.transportGroup} options</h2>
-              <div className="flex flex-col gap-3">
-                {similar.map(s => (
-                  <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl"
-                    style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                    <img src={s.image} alt={s.operator} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>{s.operator}</p>
-                      <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{s.transportMode} · {s.origin} → {s.destination}</p>
-                      <p className="text-sm font-bold tabular-nums mt-0.5" style={{ color: 'var(--fg)' }}>
-                        {s.currency} {s.price} <span className="text-xs font-normal" style={{ color: 'var(--fg-muted)' }}>/ {s.priceBasis}</span>
-                      </p>
-                    </div>
-                    <button className="text-xs font-semibold px-3 py-2 rounded-xl flex-shrink-0"
-                      style={{ background: 'rgba(140,82,255,0.1)', color: 'var(--primary)' }}>
-                      View
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* ── RIGHT: Booking panel (desktop) ── */}
-        <div className="hidden lg:block flex-shrink-0" style={{ width: 320 }}>
-          <div className="sticky top-28">
-            <BookingPanel result={result} onBook={onBook} />
-          </div>
+        {/* Right column: Booking Panel */}
+        <div className="w-full lg:w-80 flex-shrink-0">
+          <BookingPanel result={result} onBook={onBook} />
         </div>
       </div>
-
-      {/* ── Mobile sticky booking bar — above bottom navigation ── */}
-      <div className="mobile-sticky-cta lg:hidden"
-        style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex-1 min-w-0">
-            <span className="text-xl font-extrabold tabular-nums price-inline break-anywhere" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--fg)' }}>
-              {result.currency} {result.price}
-            </span>
-            <span className="text-xs ml-1" style={{ color: 'var(--fg-muted)' }}>/ {result.priceBasis}</span>
-          </div>
-          <a
-            href="tel:+26481000000"
-            className="flex-shrink-0 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 min-h-[48px] inline-flex items-center gap-1.5 no-underline"
-            style={{
-              background: color,
-              color: '#fff',
-            }}>
-            <span>Contact Operator</span>
-          </a>
-        </div>
-      </div>
-
-      <div className="mobile-sticky-cta-spacer lg:hidden" aria-hidden />
     </div>
   )
 }

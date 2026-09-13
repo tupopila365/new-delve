@@ -1,17 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search, Tag, X } from 'lucide-react'
 import DealFeedCard from '../components/deals/DealFeedCard'
 import DealCatalogDetail from '../components/deals/DealCatalogDetail'
-import { SectionEmpty } from '../components/SectionStates'
+import { SectionEmpty, SkeletonCard } from '../components/SectionStates'
 import { formatMoney } from '../lib/formatMoney'
 import MyClaimsPage from './MyClaimsPage'
+import { fetchPublicDeals, fetchPublicDeal } from '../api/dealClient'
 import {
   DEAL_AUDIENCES,
   DEAL_CITIES,
   DEAL_SERVICE_CATEGORIES,
-  featuredMarketingDeals,
-  getMarketingDeal,
-  MARKETING_DEALS,
+  dealDtoToCatalogDeal,
   type CatalogDeal,
   type DealAudience,
 } from '../data/marketingDealsCatalog'
@@ -59,6 +58,9 @@ export default function DealsPage({
   onClearInitialDeal?: () => void
 } = {}) {
   const [selectedDealId, setSelectedDealId] = useState<string | null>(initialDealId)
+  const [selectedDeal, setSelectedDeal] = useState<CatalogDeal | null>(null)
+  const [deals, setDeals] = useState<CatalogDeal[]>([])
+  const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortFilter>('all')
   const [cityFilter, setCityFilter] = useState('')
@@ -67,26 +69,78 @@ export default function DealsPage({
   const [tab, setTab] = useState<'discover' | 'mine'>('discover')
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
 
-  const featured = featuredMarketingDeals()
+  // Load public deals from backend
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetchPublicDeals(40, undefined, {
+      city: cityFilter || undefined,
+      category: categoryFilter || undefined,
+      q: query.trim() || undefined,
+      sort: sort === 'ending-soon' ? 'endingSoon' : undefined,
+    })
+      .then(rows => {
+        if (!cancelled) {
+          setDeals(rows.map(dealDtoToCatalogDeal))
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDeals([])
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [cityFilter, categoryFilter, query, sort])
+
+  // Load deal details when selected
+  useEffect(() => {
+    if (!selectedDealId) {
+      setSelectedDeal(null)
+      return
+    }
+
+    const cached = deals.find(d => d.id === selectedDealId)
+    if (cached) {
+      setSelectedDeal(cached)
+      return
+    }
+
+    let cancelled = false
+    fetchPublicDeal(selectedDealId)
+      .then(dto => {
+        if (!cancelled) setSelectedDeal(dealDtoToCatalogDeal(dto))
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedDeal(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedDealId, deals])
+
+  const featured = useMemo(() => {
+    return deals.filter(d => d.featuredRank != null).sort((a, b) => (a.featuredRank ?? 99) - (b.featuredRank ?? 99))
+  }, [deals])
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    let rows = MARKETING_DEALS.filter(deal => {
-      if (cityFilter && deal.city !== cityFilter) return false
+    let rows = deals.filter(deal => {
+      if (cityFilter && deal.city.toLowerCase() !== cityFilter.toLowerCase()) return false
       if (categoryFilter && deal.category !== categoryFilter) return false
       if (audienceFilter && !deal.audiences.includes(audienceFilter)) return false
       if (sort === 'ending-soon' && hoursLeft(deal.endDate) > 72) return false
-      if (!q) return true
-      const hay = [deal.title, deal.description, deal.businessName, deal.city, deal.category, deal.listingTitle, ...deal.audiences]
-        .join(' ')
-        .toLowerCase()
-      return hay.includes(q)
+      return true
     })
     if (sort === 'discount') {
       rows = [...rows].sort((a, b) => b.discountPercentage - a.discountPercentage)
     }
     return rows
-  }, [query, cityFilter, categoryFilter, audienceFilter, sort])
+  }, [deals, cityFilter, categoryFilter, audienceFilter, sort])
 
   const grouped = useMemo(() => {
     const canGroup = sort === 'all' && !query.trim() && !cityFilter && !categoryFilter && !audienceFilter
@@ -106,18 +160,17 @@ export default function DealsPage({
     })
   }
 
-  const selected = selectedDealId ? getMarketingDeal(selectedDealId) : undefined
-
-  if (selected) {
+  if (selectedDeal) {
     return (
       <DealCatalogDetail
-        deal={selected}
-        saved={savedIds.has(selected.id)}
+        deal={selectedDeal}
+        saved={savedIds.has(selectedDeal.id)}
         onBack={() => {
           setSelectedDealId(null)
+          setSelectedDeal(null)
           onClearInitialDeal?.()
         }}
-        onToggleSave={() => toggleSave(selected.id)}
+        onToggleSave={() => toggleSave(selectedDeal.id)}
       />
     )
   }
@@ -129,7 +182,7 @@ export default function DealsPage({
           Deals
         </h1>
         <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-          Preview offers for recording — not claimable, bookable, or payable.
+          Exclusive offers and promotional rates from verified Namibian operators.
         </p>
         <div className="flex gap-2 mt-3">
           {(
@@ -210,9 +263,15 @@ export default function DealsPage({
             </div>
           )}
 
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-4 sm:px-0">
+              <SkeletonCard height={280} />
+              <SkeletonCard height={280} />
+              <SkeletonCard height={280} />
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="px-4 sm:px-0">
-              <SectionEmpty icon={<Tag size={20} />} title="No matching deals" body="Try another destination, category, or traveler type." />
+              <SectionEmpty icon={<Tag size={20} />} title="No matching deals" body="Try another destination, category, or search term." />
             </div>
           ) : grouped ? (
             <div className="flex flex-col">

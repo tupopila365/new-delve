@@ -3,8 +3,8 @@ import {
   Search, MapPin, Sparkles, Tag, Car, Bed, Utensils, Zap, Map,
   Calendar, ShoppingBag, Navigation, Users, Flame, HelpCircle,
   ShieldCheck, ChevronRight, ArrowUpRight, CheckCircle, Bookmark,
-  Star, RefreshCw, MessageSquare, Award, Clock, ArrowRight,
-  Plane, Bus, Check, X, Compass
+  Star, MessageSquare, Award, Clock, ArrowRight,
+  Plane, Bus, X, Compass
 } from 'lucide-react'
 import { fetchHomePageData, type HomeFeedData, type NormalizedListing, type NormalizedDeal, type NormalizedJourney } from '../api/homeClient'
 import type { TransportResult } from '../data/transportData'
@@ -254,26 +254,7 @@ export default function HomePage({
               <span>Discover your entire trip in one place</span>
             </div>
 
-            {data?.isLiveBackend?.listings ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Live Backend Connected</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                <span>Offline Demo Mode</span>
-                <button
-                  type="button"
-                  onClick={() => setReloadKey(k => k + 1)}
-                  title="Retry connecting to Backend API"
-                  className="ml-1 p-0.5 hover:rotate-180 transition-transform cursor-pointer text-amber-600 dark:text-amber-400"
-                >
-                  <RefreshCw size={11} />
-                </button>
-              </span>
-            )}
-          </div>
+            </div>
 
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight m-0 mb-2" style={{ color: 'var(--fg)', lineHeight: 1.2 }}>
             Discover your whole trip in one place.
@@ -379,7 +360,7 @@ export default function HomePage({
               <span>Direct provider contact</span>
             </div>
             <div className="flex items-center gap-1.5" style={{ color: 'var(--fg-muted)' }}>
-              <Check size={13} style={{ color: '#10A760' }} />
+              <CheckCircle size={13} style={{ color: '#10A760' }} />
               <span>Transparent local rates</span>
             </div>
           </div>
@@ -463,11 +444,6 @@ export default function HomePage({
               <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
                 Featured Experiences & Services
               </h2>
-              {data?.isLiveBackend?.listings && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
-                  Live API
-                </span>
-              )}
             </div>
             <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
               Verified stays, activities, and dining across {selectedDestination || 'Namibia'}.
@@ -632,11 +608,6 @@ export default function HomePage({
                 <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
                   Deals & Resident Rates
                 </h2>
-                {data.isLiveBackend?.deals && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
-                    Live Deals
-                  </span>
-                )}
               </div>
               <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
                 Genuine savings offered directly by local operators. No intermediary fees.
@@ -735,76 +706,76 @@ export default function HomePage({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {data?.transport.slice(0, 4).map(t => (
-            <div
-              key={t.id}
-              onClick={() => onOpenTransport ? onOpenTransport() : onNavigate('Transport')}
-              className="p-4 rounded-2xl flex flex-col justify-between transition-all hover:-translate-y-1 cursor-pointer"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span
-                    className="text-xs font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5"
-                    style={{ background: 'rgba(59,130,246,0.12)', color: '#2563EB' }}
-                  >
-                    {t.transportMode === 'Airport transfer' ? <Plane size={12} /> :
-                     t.transportMode === 'Bus' || t.transportMode === 'Minibus' ? <Bus size={12} /> :
-                     <Car size={12} />}
-                    <span>{t.transportMode}</span>
-                  </span>
-                  {t.verification?.verified && (
-                    <span title="Verified operator"><CheckCircle size={14} style={{ color: '#10A760' }} /></span>
-                  )}
-                </div>
-
-                <h3 className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>
-                  {t.origin} → {t.destination}
-                </h3>
-                <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
-                  Operated by {t.operator}
-                </p>
-
-                <div className="space-y-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={11} />
-                    <span>Duration: {t.duration}</span>
-                  </div>
-                  {t.departure && (
-                    <div className="flex items-center gap-1.5">
-                      <Calendar size={11} />
-                      <span>Departure: {t.departure}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+        {data?.transport && data.transport.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {data.transport.slice(0, 4).map(t => (
+              <div
+                key={t.id}
+                onClick={() => onOpenTransport ? onOpenTransport() : onNavigate('Transport')}
+                className="p-4 rounded-2xl flex flex-col justify-between transition-all hover:-translate-y-1 cursor-pointer"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
                 <div>
-                  <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--fg)' }}>
-                    {t.currency} {t.price}
-                  </span>
-                  <span className="text-[11px] ml-1" style={{ color: 'var(--fg-muted)' }}>
-                    /{t.priceBasis}
+                  <div className="flex items-center justify-between mb-3">
+                    <span
+                      className="text-xs font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5"
+                      style={{ background: 'rgba(59,130,246,0.12)', color: '#2563EB' }}
+                    >
+                      {t.transportMode === 'Airport transfer' ? <Plane size={12} /> :
+                       t.transportMode === 'Bus' || t.transportMode === 'Minibus' ? <Bus size={12} /> :
+                       <Car size={12} />}
+                      <span>{t.transportMode}</span>
+                    </span>
+                    {t.verification?.verified && (
+                      <span title="Verified operator"><CheckCircle size={14} style={{ color: '#10A760' }} /></span>
+                    )}
+                  </div>
+
+                  <h3 className="text-sm font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+                    {t.origin} → {t.destination}
+                  </h3>
+                  <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
+                    Operated by {t.operator}
+                  </p>
+
+                  <div className="space-y-1 text-xs" style={{ color: 'var(--fg-muted)' }}>
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={11} />
+                      <span>Duration: {t.duration}</span>
+                    </div>
+                    {t.departure && (
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={11} />
+                        <span>Departure: {t.departure}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+                  <div>
+                    <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--fg)' }}>
+                      {t.currency} {t.price}
+                    </span>
+                    <span className="text-[11px] ml-1" style={{ color: 'var(--fg-muted)' }}>
+                      /{t.priceBasis}
+                    </span>
+                  </div>
+                  <span className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: 'var(--primary)' }}>
+                    <span>Details</span>
+                    <ChevronRight size={13} />
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={e => {
-                    e.stopPropagation()
-                    if (onOpenTransport) onOpenTransport()
-                    else onNavigate('Transport')
-                  }}
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer"
-                  style={{ background: 'var(--surface-subtle)', color: 'var(--fg)', border: '1px solid var(--border)' }}
-                >
-                  Details
-                </button>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <SectionEmpty
+            icon={<Car size={24} />}
+            title="No transport routes available"
+            body="Transport listings and vehicle routes will appear here once published."
+          />
+        )}
       </section>
 
       {/* ─── 6. JOURNEYS TO BORROW ─────────────────────────────────────────── */}
@@ -817,11 +788,6 @@ export default function HomePage({
                 <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
                   Journeys to Borrow
                 </h2>
-                {data.isLiveBackend?.journeys && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
-                    Live API
-                  </span>
-                )}
               </div>
               <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
                 Tested itineraries shared by travelers with transparent historical costs.
@@ -962,66 +928,23 @@ export default function HomePage({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 sm:p-5 rounded-2xl flex flex-col justify-between" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-subtle)', color: 'var(--fg-muted)' }}>
-                  Swakopmund • Road conditions
-                </span>
-                <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                  <Check size={12} /> Answered
-                </span>
-              </div>
-              <h3 className="text-sm sm:text-base font-bold m-0 mb-2" style={{ color: 'var(--fg)' }}>
-                "Can you drive a 2WD sedan from Windhoek to Swakopmund via the B2?"
-              </h3>
-              <p className="text-xs leading-relaxed m-0" style={{ color: 'var(--fg-muted)' }}>
-                <strong className="text-[var(--fg)]">Local answer:</strong> Yes, 100%. The B2 is fully tarred from Windhoek all the way through Okahandja and Usakos to Swakopmund. No 4x4 needed unless you branch off onto C-gravel roads.
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--border)' }}>
-              <span style={{ color: 'var(--fg-muted)' }}>Answered by Swakop Guide J.</span>
-              <button
-                type="button"
-                onClick={() => onNavigate('Communities')}
-                className="font-semibold cursor-pointer"
-                style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
-              >
-                Join discussion
-              </button>
-            </div>
+        <div className="p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="max-w-xl">
+            <h3 className="text-base font-bold m-0 mb-1" style={{ color: 'var(--fg)' }}>
+              Got a question about road conditions, park passes, or travel timing?
+            </h3>
+            <p className="text-xs leading-relaxed m-0" style={{ color: 'var(--fg-muted)' }}>
+              Join Delve Communities to connect with verified Namibian hosts, resident guides, and fellow overland travelers in real time.
+            </p>
           </div>
-
-          <div className="p-4 sm:p-5 rounded-2xl flex flex-col justify-between" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-subtle)', color: 'var(--fg-muted)' }}>
-                  Sossusvlei • Best timing
-                </span>
-                <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                  <Check size={12} /> Answered
-                </span>
-              </div>
-              <h3 className="text-sm sm:text-base font-bold m-0 mb-2" style={{ color: 'var(--fg)' }}>
-                "What time do Sesriem gate lines start forming for sunrise at Dune 45?"
-              </h3>
-              <p className="text-xs leading-relaxed m-0" style={{ color: 'var(--fg-muted)' }}>
-                <strong className="text-[var(--fg)]">Local answer:</strong> Outer gate opens right at sunrise, but cars queue starting ~45 mins before. If you stay inside the park at Sesriem campsite or lodge, inner gate opens an hour earlier.
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--border)' }}>
-              <span style={{ color: 'var(--fg-muted)' }}>Answered by Amara Safari</span>
-              <button
-                type="button"
-                onClick={() => onNavigate('Communities')}
-                className="font-semibold cursor-pointer"
-                style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
-              >
-                Join discussion
-              </button>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('Communities')}
+            className="min-h-[44px] px-5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all"
+            style={{ background: 'var(--primary)', color: '#fff', border: 'none' }}
+          >
+            Explore Community Q&A
+          </button>
         </div>
       </section>
 

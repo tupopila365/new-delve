@@ -4,10 +4,10 @@ import {
   Bus, Star, CheckCircle, Bookmark, Heart, TrendingUp,
   Filter, ChevronDown, SlidersHorizontal, AlertCircle, User, Calendar, Users, Tag,
 } from 'lucide-react'
-import type { CommunityDto, CommunityThreadSummary, DealDto, EventDto, JourneySummary, PostDto, PublicTravelerProfile, SearchSuggestion } from '@delve/contracts'
+import type { CommunityDto, CommunityThreadSummary, DealDto, EventDto, JourneySummary, PostDto, PublicTravelerProfile, SearchSuggestion, ListingPublicDto } from '@delve/contracts'
 import {
   popularSearches, suggestedDestinations,
-  mockSearchResults, exploreCategories, transportShortcuts,
+  exploreCategories, transportShortcuts,
   type ResultType, type SearchResult,
   type TransportSearchResult, type JourneySearchResult, type DelversSearchResult,
   type DealSearchResult,
@@ -17,6 +17,7 @@ import { fetchPublicDeals } from '../api/dealClient'
 import { listCommunities } from '../api/communityClient'
 import { listJourneys } from '../api/journeyClient'
 import { fetchSearchSuggestions, unifiedSearch } from '../api/searchClient'
+import { fetchPublicListings } from '../api/listingClient'
 import { formatUsername } from '../lib/formatUsername'
 import { kindLabel } from '../components/communities/communityThreadKinds'
 import EventCoverMedia from '../components/EventCoverMedia'
@@ -572,6 +573,39 @@ function DelversThumb({
   )
 }
 
+function listingToSearchResult(l: ListingPublicDto): SearchResult {
+  const cover =
+    l.media.find(m => m.isCover && m.delivery?.url)?.delivery?.url ||
+    l.media.find(m => m.delivery?.url)?.delivery?.url ||
+    'https://images.unsplash.com/photo-1547036967-23d11aacaee0?w=600&h=400&fit=crop&auto=format'
+  const cat = (l.businessArea?.category || l.business.category || '').toLowerCase()
+  let resultType: ResultType = 'place'
+  if (cat.includes('transport') || cat.includes('transfer') || cat.includes('car')) resultType = 'transport'
+  else if (cat.includes('stay') || cat.includes('hotel') || cat.includes('lodge') || cat.includes('camp')) resultType = 'stay'
+  else if (cat.includes('food') || cat.includes('restaurant') || cat.includes('cafe')) resultType = 'food'
+  else if (cat.includes('activity') || cat.includes('tour') || cat.includes('safari')) resultType = 'activity'
+  else if (cat.includes('event')) resultType = 'event'
+  else if (cat.includes('guide')) resultType = 'guide'
+  else if (cat.includes('shop')) resultType = 'shop'
+
+  return {
+    id: l.id,
+    resultType,
+    title: l.title,
+    subtitle: l.description || l.business.name,
+    destination: l.business.city || 'Namibia',
+    image: cover,
+    price: l.pricing?.amount ? String(l.pricing.amount) : undefined,
+    currency: l.pricing?.currency || 'N$',
+    priceBasis: 'booking',
+    rating: 4.8,
+    reviewCount: 12,
+    verification: { verified: true, label: 'Verified Partner' },
+    sponsored: false,
+    actionLabel: resultType === 'transport' ? 'Book route' : resultType === 'stay' ? 'Check dates' : 'View details',
+  }
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────
 
 export default function SearchPage({
@@ -606,6 +640,7 @@ export default function SearchPage({
   const [journeyHits, setJourneyHits] = useState<JourneySummary[]>([])
   const [eventHits, setEventHits] = useState<EventDto[]>([])
   const [dealHits, setDealHits] = useState<DealDto[]>([])
+  const [listingResults, setListingResults] = useState<SearchResult[]>([])
   const [recentSearches, setRecentSearches] = useState<string[]>(() => loadRecentSearches())
   const [liveSuggestions, setLiveSuggestions] = useState<SearchSuggestion[]>([])
   const [suggestLoading, setSuggestLoading] = useState(false)
@@ -705,17 +740,41 @@ export default function SearchPage({
     setDelversLoading(true)
     setDelversError(null)
     try {
-      const result = await unifiedSearch({
-        q: finalQuery,
-        types: tab === 'all' ? undefined : searchTypesForTab(tab),
-      })
-      setTravelers(result.travelers)
-      setDelverPosts(result.posts)
-      setCommunityHits(result.communities)
-      setThreadHits(result.threads)
-      setJourneyHits(result.journeys)
-      setEventHits(result.events)
-      setDealHits(result.deals ?? [])
+      const [searchSettled, listingsSettled] = await Promise.allSettled([
+        unifiedSearch({
+          q: finalQuery,
+          types: tab === 'all' ? undefined : searchTypesForTab(tab),
+        }),
+        fetchPublicListings({
+          q: finalQuery,
+          category: (tab !== 'all' && tab !== 'delvers' && tab !== 'community' && tab !== 'journey' && tab !== 'event' && tab !== 'deal') ? tab : undefined
+        })
+      ])
+
+      if (searchSettled.status === 'fulfilled') {
+        const result = searchSettled.value
+        setTravelers(result.travelers)
+        setDelverPosts(result.posts)
+        setCommunityHits(result.communities)
+        setThreadHits(result.threads)
+        setJourneyHits(result.journeys)
+        setEventHits(result.events)
+        setDealHits(result.deals ?? [])
+      } else {
+        setTravelers([])
+        setDelverPosts([])
+        setCommunityHits([])
+        setThreadHits([])
+        setJourneyHits([])
+        setEventHits([])
+        setDealHits([])
+      }
+
+      if (listingsSettled.status === 'fulfilled') {
+        setListingResults(listingsSettled.value.map(listingToSearchResult))
+      } else {
+        setListingResults([])
+      }
     } catch (err) {
       setTravelers([])
       setDelverPosts([])
@@ -724,6 +783,7 @@ export default function SearchPage({
       setJourneyHits([])
       setEventHits([])
       setDealHits([])
+      setListingResults([])
       setDelversError(err instanceof Error ? err.message : 'Could not search')
     } finally {
       setDelversLoading(false)
@@ -804,6 +864,8 @@ export default function SearchPage({
     setThreadHits([])
     setJourneyHits([])
     setEventHits([])
+    setDealHits([])
+    setListingResults([])
     setDelversError(null)
     inputRef.current?.focus()
   }
@@ -832,11 +894,7 @@ export default function SearchPage({
   const showLiveJourneys = activeTab === 'all' || activeTab === 'journey'
   const showLiveEvents = activeTab === 'all' || activeTab === 'event'
   const showLiveDeals = activeTab === 'all' || activeTab === 'deal'
-  const filteredResults = mockSearchResults.filter(r => {
-    if (r.resultType === 'delvers') return false // live Delvers replace mock
-    if (r.resultType === 'journey') return false // live Journeys replace mock
-    if (r.resultType === 'event') return false // live Events replace mock
-    if (r.resultType === 'deal' && dealHits.length > 0) return false
+  const filteredResults = listingResults.filter(r => {
     return activeTab === 'all' || r.resultType === activeTab
   })
   const hasLiveDelvers = travelers.length > 0 || delverPosts.length > 0

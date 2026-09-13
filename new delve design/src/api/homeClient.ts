@@ -1,10 +1,7 @@
 import { fetchPublicListings } from './listingClient'
 import { fetchPublicDeals } from './dealClient'
 import { listJourneys } from './journeyClient'
-import { allListings, type ListingFull } from '../data/listingData'
-import { allDeals, type DealFull } from '../data/dealsData'
-import { allJourneys, type JourneyDetail } from '../data/journeyData'
-import { transportResults, type TransportResult } from '../data/transportData'
+import type { TransportResult } from '../data/transportData'
 import type { ListingPublicDto, DealDto, JourneySummary } from '@delve/contracts'
 
 export interface HomeFeedData {
@@ -12,11 +9,6 @@ export interface HomeFeedData {
   deals: NormalizedDeal[]
   journeys: NormalizedJourney[]
   transport: TransportResult[]
-  isLiveBackend: {
-    listings: boolean
-    deals: boolean
-    journeys: boolean
-  }
 }
 
 export interface NormalizedListing {
@@ -86,25 +78,6 @@ function normalizeBackendListing(l: ListingPublicDto): NormalizedListing {
   }
 }
 
-function normalizeFallbackListing(l: ListingFull): NormalizedListing {
-  return {
-    id: l.id,
-    title: l.title,
-    subtitle: l.subtitle,
-    businessName: l.business,
-    businessCategory: l.serviceCategory,
-    destination: l.destination,
-    coverImage: l.media[0] || 'https://images.unsplash.com/photo-1582152629442-4a864303fb96?w=700&h=460&fit=crop&auto=format',
-    priceFormatted: l.price && l.price !== '0' ? `${l.currency} ${l.price}` : 'Free / Inquiry',
-    priceBasis: l.priceBasis,
-    rating: l.rating,
-    reviewCount: l.reviewCount,
-    verified: l.verification.verified,
-    category: l.serviceCategory,
-    highlights: l.highlights?.slice(0, 3),
-  }
-}
-
 function normalizeBackendDeal(d: DealDto): NormalizedDeal {
   return {
     id: d.id,
@@ -117,21 +90,6 @@ function normalizeBackendDeal(d: DealDto): NormalizedDeal {
     discountSummary: d.discountSummary,
     validUntil: d.endDate ? new Date(d.endDate).toLocaleDateString() : undefined,
     verified: true,
-  }
-}
-
-function normalizeFallbackDeal(d: DealFull): NormalizedDeal {
-  return {
-    id: d.id,
-    title: d.title,
-    businessName: d.business,
-    category: d.serviceCategory,
-    destination: d.destination,
-    image: d.image,
-    currentPrice: `${d.currency} ${d.currentPrice}`,
-    discountSummary: d.typeLabel,
-    validUntil: d.endsAt,
-    verified: d.verification.verified,
   }
 }
 
@@ -156,74 +114,64 @@ function normalizeBackendJourney(j: JourneySummary): NormalizedJourney {
   }
 }
 
-function normalizeFallbackJourney(j: JourneyDetail): NormalizedJourney {
+export function listingToTransportResult(l: ListingPublicDto): TransportResult {
+  const cover = l.media.find(m => m.isCover && m.resourceType === 'image' && m.delivery?.url)?.delivery?.url
+    || l.media.find(m => m.resourceType === 'image' && m.delivery?.url)?.delivery?.url
+    || 'https://images.unsplash.com/photo-1544632688-712e150321a5?w=700&h=460&fit=crop&auto=format'
+  const originCity = l.business.city || 'Windhoek'
+
   return {
-    id: j.id,
-    title: j.title,
-    creatorName: j.creator.name,
-    creatorAvatar: j.creator.avatar,
-    creatorHandle: j.creator.handle,
-    coverImage: j.coverMedia,
-    route: `${j.startPlace} → ${j.endPlace}`,
-    duration: `${j.durationDays} days · ${j.stopCount} stops`,
-    stopCount: j.stopCount,
-    transportModes: j.transportModes,
-    historicalCost: `${j.currency} ${j.historicalCost}`,
+    id: l.id,
+    transportGroup: 'road',
+    transportMode: l.business.category || 'Transport',
+    operator: l.business.name,
+    operatorType: 'Verified provider',
+    origin: originCity,
+    destination: 'Namibia',
+    departure: 'Daily departures',
+    arrival: 'On schedule',
+    duration: 'Direct / Scheduled',
+    price: l.pricing ? String(l.pricing.amount) : 'Inquire',
+    currency: l.pricing?.currency || 'NAD',
+    priceBasis: 'per trip',
+    capacity: 4,
+    luggage: 'Standard baggage',
+    accessibility: null,
+    verification: { verified: true, label: 'Verified Provider' },
+    cancellation: 'Flexible cancellation',
+    image: cover,
+    bookingMethod: 'request',
+    sponsored: false,
+    status: 'available',
   }
 }
 
 export async function fetchHomePageData(destination?: string | null): Promise<HomeFeedData> {
-  const [listingsResult, dealsResult, journeysResult] = await Promise.allSettled([
+  const [listingsResult, dealsResult, journeysResult, transportResult] = await Promise.allSettled([
     fetchPublicListings({ limit: 40, city: destination || undefined }),
     fetchPublicDeals(12, undefined, { city: destination || undefined }),
     listJourneys({ destination: destination || undefined }),
+    fetchPublicListings({ limit: 12, category: 'Transport', city: destination || undefined }),
   ])
 
   let listings: NormalizedListing[] = []
-  let isLiveListings = false
   if (listingsResult.status === 'fulfilled' && listingsResult.value && listingsResult.value.length > 0) {
     listings = listingsResult.value.map(normalizeBackendListing)
-    isLiveListings = true
-  } else {
-    // Curated fallback
-    let fallback = allListings
-    if (destination) {
-      const match = fallback.filter(l => l.destination.toLowerCase() === destination.toLowerCase())
-      if (match.length > 0) fallback = match
-    }
-    listings = fallback.map(normalizeFallbackListing)
   }
 
   let deals: NormalizedDeal[] = []
-  let isLiveDeals = false
   if (dealsResult.status === 'fulfilled' && dealsResult.value && dealsResult.value.length > 0) {
     deals = dealsResult.value.map(normalizeBackendDeal)
-    isLiveDeals = true
-  } else {
-    let fallback = allDeals
-    if (destination) {
-      const match = fallback.filter(d => d.destination.toLowerCase() === destination.toLowerCase())
-      if (match.length > 0) fallback = match
-    }
-    deals = fallback.map(normalizeFallbackDeal)
   }
 
   let journeys: NormalizedJourney[] = []
-  let isLiveJourneys = false
   if (journeysResult.status === 'fulfilled' && journeysResult.value && journeysResult.value.length > 0) {
     journeys = journeysResult.value.map(normalizeBackendJourney)
-    isLiveJourneys = true
-  } else {
-    journeys = allJourneys.map(normalizeFallbackJourney)
   }
 
-  // Filter transport options if destination is active
-  let transport = transportResults
-  if (destination) {
-    const destMatch = transportResults.filter(
-      t => t.destination.toLowerCase() === destination.toLowerCase() || t.origin.toLowerCase() === destination.toLowerCase()
-    )
-    if (destMatch.length > 0) transport = destMatch
+  let transport: TransportResult[] = []
+  if (transportResult.status === 'fulfilled' && transportResult.value && transportResult.value.length > 0) {
+    transport = transportResult.value.map(listingToTransportResult)
   }
 
   return {
@@ -231,10 +179,5 @@ export async function fetchHomePageData(destination?: string | null): Promise<Ho
     deals,
     journeys,
     transport,
-    isLiveBackend: {
-      listings: isLiveListings,
-      deals: isLiveDeals,
-      journeys: isLiveJourneys,
-    },
   }
 }

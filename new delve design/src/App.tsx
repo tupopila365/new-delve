@@ -17,7 +17,6 @@ import AccountSettingsPage from './pages/AccountSettingsPage'
 import EmailChangeVerifyPage from './pages/EmailChangeVerifyPage'
 import { ShimmerStyle } from './components/SectionStates'
 import SafeImage from './components/mobile/SafeImage'
-import ExpandableCaption from './components/mobile/ExpandableCaption'
 import MobileTabRail from './components/mobile/MobileTabRail'
 import TransportPage, { TransportAside } from './pages/TransportPage'
 import SearchPage from './pages/SearchPage'
@@ -84,132 +83,6 @@ function useTheme() {
   return { theme, setTheme, resolved }
 }
 
-// ─── Data ─────────────────────────────────────────────────────────────────
-
-// Home highlight rings — curated / demo only. Traveler 24h stories live on Delvers
-// (API-backed). Do not wire this rail to /stories/*; admin Home stories stay separate.
-const stories = [
-  { id: 's0', name: 'Your story', avatar: '', isOwn: true, place: '' },
-  { id: 's1', name: 'Lena B.', avatar: 'https://images.unsplash.com/photo-1582152629442-4a864303fb96?w=80&h=80&fit=crop&auto=format', place: 'Sossusvlei', unseen: true },
-  { id: 's2', name: 'Marcus V.', avatar: 'https://images.unsplash.com/photo-1537430802614-118bf14be50c?w=80&h=80&fit=crop&auto=format', place: 'Swakop', unseen: true },
-  { id: 's3', name: 'Amara S.', avatar: 'https://images.unsplash.com/photo-1599628489211-2e6e0a9cbb05?w=80&h=80&fit=crop&auto=format', place: 'Etosha', unseen: true },
-  { id: 's4', name: 'Theo P.', avatar: 'https://images.unsplash.com/photo-1569342515654-a51ab4b2b050?w=80&h=80&fit=crop&auto=format', place: 'Walvis Bay', unseen: false },
-  { id: 's5', name: 'Clara M.', avatar: 'https://images.unsplash.com/photo-1557002665-c552e1832483?w=80&h=80&fit=crop&auto=format', place: 'Windhoek', unseen: false },
-  { id: 's6', name: 'Priya K.', avatar: 'https://images.unsplash.com/photo-1712673363487-4f5e529df0b3?w=80&h=80&fit=crop&auto=format', place: 'Fish River', unseen: true },
-]
-
-type PostType = 'photo' | 'journey' | 'deal' | 'question'
-
-interface Post {
-  id: string
-  type: PostType
-  author: { name: string; handle: string; avatar: string; verified: boolean; following: boolean }
-  place: string
-  timeAgo: string
-  images: string[]
-  caption: string
-  likes: number
-  comments: number
-  liked: boolean
-  saved: boolean
-  contentLabel?: 'Sponsored' | 'Business'
-  // journey extras
-  journeyRoute?: string
-  journeyDuration?: string
-  journeyBudget?: string
-  // deal extras
-  dealPrice?: string
-  dealCategory?: string
-  dealSaving?: string
-  // question extras
-  questionAnswered?: boolean
-  questionAnswerCount?: number
-}
-
-const initialPosts: Post[] = [
-  {
-    id: 'p1', type: 'photo',
-    author: { name: 'Lena Brandt', handle: '@lenabrandt', avatar: 'https://images.unsplash.com/photo-1582152629442-4a864303fb96?w=80&h=80&fit=crop&auto=format', verified: true, following: false },
-    place: 'Sossusvlei, Namibia', timeAgo: '2h',
-    images: ['https://images.unsplash.com/photo-1652439310454-a50203f01d8f?w=800&h=900&fit=crop&auto=format'],
-    caption: 'Woke up at 4am to catch this light on Dune 45. Zero other people. The silence is something I will never be able to describe properly. 🟠',
-    likes: 842, comments: 37, liked: false, saved: false,
-  },
-  {
-    id: 'p2', type: 'journey',
-    author: { name: 'Theo P.', handle: '@theop_na', avatar: 'https://images.unsplash.com/photo-1569342515654-a51ab4b2b050?w=80&h=80&fit=crop&auto=format', verified: false, following: true },
-    place: 'Windhoek → Swakopmund → Walvis Bay', timeAgo: '5h',
-    images: ['https://images.unsplash.com/photo-1563985336376-568060942b80?w=800&h=500&fit=crop&auto=format'],
-    caption: "Did this whole weekend on N$ 3 800. Bus both ways, hostel in Swakop, street food only. Totally doable.",
-    journeyRoute: 'Windhoek → Swakopmund → Walvis Bay',
-    journeyDuration: '3 days · 4 stops',
-    journeyBudget: 'N$ 3 800 — what this traveler spent',
-    likes: 312, comments: 28, liked: false, saved: false,
-  },
-  {
-    id: 'p3', type: 'deal',
-    author: { name: 'Dune Riders Swakop', handle: '@duneriders', avatar: 'https://images.unsplash.com/photo-1639402479478-f5e7881c0ccc?w=80&h=80&fit=crop&auto=format', verified: true, following: false },
-    place: 'Swakopmund, Namibia', timeAgo: '6h',
-    images: ['https://images.unsplash.com/photo-1639403169804-318fcb1d23ad?w=800&h=600&fit=crop&auto=format'],
-    caption: 'Weekend quad slots just opened up. Local rate applies. Book before Sunday.',
-    dealPrice: 'N$ 550/person', dealCategory: 'Activity', dealSaving: 'Local rate available',
-    likes: 190, comments: 9, liked: false, saved: false, contentLabel: 'Business',
-  },
-  {
-    id: 'p4', type: 'photo',
-    author: { name: 'Marcus V.', handle: '@marcusv_travels', avatar: 'https://images.unsplash.com/photo-1537430802614-118bf14be50c?w=80&h=80&fit=crop&auto=format', verified: false, following: true },
-    place: 'Swakopmund Waterfront', timeAgo: '8h',
-    images: [
-      'https://images.unsplash.com/photo-1602002418816-5c0aeef426aa?w=800&h=600&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1617859047452-8510bcf207fd?w=800&h=600&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1584132869994-873f9363a562?w=800&h=600&fit=crop&auto=format',
-    ],
-    caption: 'Three days in Swakop and I barely left the waterfront. The Tug Restaurant at sunset is elite.',
-    likes: 601, comments: 44, liked: false, saved: false,
-  },
-  {
-    id: 'p5', type: 'question',
-    author: { name: 'Priya K.', handle: '@priyak', avatar: 'https://images.unsplash.com/photo-1712673363487-4f5e529df0b3?w=80&h=80&fit=crop&auto=format', verified: false, following: false },
-    place: 'Windhoek, Namibia', timeAgo: '10h',
-    images: [],
-    caption: "What's the best way to get from Windhoek to Swakopmund without renting a car? Bus? Community ride? Any tips welcome.",
-    questionAnswered: true, questionAnswerCount: 4,
-    likes: 23, comments: 14, liked: false, saved: false,
-  },
-  {
-    id: 'p6', type: 'photo',
-    author: { name: 'Amara Safari', handle: '@amarasafari', avatar: 'https://images.unsplash.com/photo-1599628489211-2e6e0a9cbb05?w=80&h=80&fit=crop&auto=format', verified: true, following: false },
-    place: 'Etosha National Park', timeAgo: '14h',
-    images: ['https://images.unsplash.com/photo-1611874156894-894081702a14?w=800&h=1000&fit=crop&auto=format'],
-    caption: 'Hour three at the waterhole. Then this happened. No words needed.',
-    likes: 1204, comments: 89, liked: false, saved: false,
-  },
-]
-
-const suggestedDelvers = [
-  { id: 'd1', name: 'Clara M.', handle: '@claraexplores', avatar: 'https://images.unsplash.com/photo-1557002665-c552e1832483?w=80&h=80&fit=crop&auto=format', verified: false, mutualFollowers: 3 },
-  { id: 'd2', name: 'Anna N.', handle: '@anna_guide', avatar: 'https://images.unsplash.com/photo-1704541556822-ab61eca95678?w=80&h=80&fit=crop&auto=format', verified: true, mutualFollowers: 0 },
-  { id: 'd3', name: 'Ben T.', handle: '@bena_travel', avatar: 'https://images.unsplash.com/photo-1714669016967-909f9ded5d72?w=80&h=80&fit=crop&auto=format', verified: false, mutualFollowers: 1 },
-]
-
-const trending = [
-  { place: 'Sossusvlei', posts: '2.4k posts this week', img: 'https://images.unsplash.com/photo-1652439310454-a50203f01d8f?w=120&h=80&fit=crop&auto=format' },
-  { place: 'Swakopmund', posts: '1.8k posts this week', img: 'https://images.unsplash.com/photo-1563985336376-568060942b80?w=120&h=80&fit=crop&auto=format' },
-  { place: 'Etosha', posts: '980 posts this week', img: 'https://images.unsplash.com/photo-1611874156894-894081702a14?w=120&h=80&fit=crop&auto=format' },
-]
-
-const categories = [
-  { icon: <Bed size={14} className="flex-shrink-0" />, label: 'Stays' },
-  { icon: <Tag size={14} className="flex-shrink-0" />, label: 'Deals' },
-  { icon: <Utensils size={14} className="flex-shrink-0" />, label: 'Food' },
-  { icon: <Zap size={14} className="flex-shrink-0" />, label: 'Activities' },
-  { icon: <Map size={14} className="flex-shrink-0" />, label: 'Guides' },
-  { icon: <Calendar size={14} className="flex-shrink-0" />, label: 'Events' },
-  { icon: <Car size={14} className="flex-shrink-0" />, label: 'Transport' },
-  { icon: <ShoppingBag size={14} className="flex-shrink-0" />, label: 'Shops' },
-  { icon: <Navigation size={14} className="flex-shrink-0" />, label: 'Journeys' },
-]
-
 // ─── Sub-components ───────────────────────────────────────────────────────
 
 function ThemeToggle({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
@@ -232,245 +105,13 @@ function ThemeToggle({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) =
   )
 }
 
-function Avatar({ src, size = 40, ring = false, own = false }: { src: string; size?: number; ring?: boolean; own?: boolean }) {
-  return (
-    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
-      <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center"
-        style={{ background: own ? 'var(--surface-subtle)' : 'var(--surface-subtle)', border: ring ? `2px solid var(--primary)` : '2px solid var(--border)' }}>
-        {own
-          ? <Plus size={size * 0.4} style={{ color: 'var(--primary)' }} />
-          : <SafeImage src={src} alt="" kind="avatar" className="w-full h-full" style={{ minHeight: size, width: size, height: size }} />
-        }
-      </div>
-      {own && (
-        <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full flex items-center justify-center"
-          style={{ background: 'var(--primary)', border: '2px solid var(--surface)' }}>
-          <Plus size={8} color="#fff" />
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Multi-image grid
-function PostImages({ images, postId }: { images: string[]; postId: string }) {
-  const [active, setActive] = useState(0)
-  if (images.length === 0) return null
-  if (images.length === 1) {
-    return (
-      <SafeImage
-        src={images[0]}
-        alt=""
-        kind="post"
-        className="w-full"
-        style={{ maxHeight: '75vw', minHeight: 200, background: 'var(--surface-subtle)' }}
-      />
-    )
-  }
-  return (
-    <div>
-      <SafeImage
-        src={images[active]}
-        alt=""
-        kind="post"
-        className="w-full"
-        style={{ maxHeight: 460, minHeight: 200, background: 'var(--surface-subtle)' }}
-      />
-      <div className="flex gap-1.5 p-3 overflow-x-auto" style={{ borderTop: '1px solid var(--border)' }}>
-        {images.map((img, i) => (
-          <button key={`${postId}-${i}`} type="button" onClick={() => setActive(i)}
-            className="overflow-hidden rounded-lg transition-all flex-shrink-0"
-            style={{ width: 52, height: 52, minWidth: 44, minHeight: 44, border: `2px solid ${i === active ? 'var(--primary)' : 'transparent'}`, opacity: i === active ? 1 : 0.6 }}>
-            <SafeImage src={img} alt="" kind="post" className="w-full h-full" style={{ minHeight: 48 }} />
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// Feed post card
-function PostCard({ post, onToggleLike, onToggleSave, onFollow }: {
-  post: Post
-  onToggleLike: (id: string) => void
-  onToggleSave: (id: string) => void
-  onFollow: (id: string) => void
-}) {
-  const [commentOpen, setCommentOpen] = useState(false)
-
-  return (
-    <article className="overflow-hidden sm:rounded-2xl min-w-0" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-      <div className="flex items-start gap-3 px-4 py-3 min-w-0">
-        <Avatar src={post.author.avatar} size={42} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-sm font-semibold truncate" style={{ color: 'var(--fg)' }}>{post.author.name}</span>
-            {post.author.verified && <CheckCircle size={13} className="flex-shrink-0" style={{ color: 'var(--primary)' }} />}
-          </div>
-          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-            {post.contentLabel && (
-              <span className="text-xs px-1.5 py-0.5 rounded font-medium"
-                style={{ background: post.contentLabel === 'Sponsored' ? 'rgba(245,158,11,0.15)' : 'rgba(99,102,241,0.12)', color: post.contentLabel === 'Sponsored' ? '#D97706' : '#6366F1' }}>
-                {post.contentLabel}
-              </span>
-            )}
-            <span className="text-xs truncate max-w-full" style={{ color: 'var(--fg-muted)' }}>
-              <MapPin size={10} className="inline mr-0.5" aria-hidden />
-              {post.place}
-            </span>
-            <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>· {post.timeAgo}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {!post.author.following && (
-            <button type="button" onClick={() => onFollow(post.id)}
-              className="text-xs font-semibold px-3 rounded-lg transition-all hover:opacity-80 min-h-[44px]"
-              style={{ background: 'rgba(140,82,255,0.12)', color: 'var(--primary)' }}>
-              Follow
-            </button>
-          )}
-          <button type="button" className="p-2.5 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center" style={{ color: 'var(--fg-muted)' }} aria-label="More options">
-            <MoreHorizontal size={16} />
-          </button>
-        </div>
-      </div>
-
-      {post.type === 'journey' && (
-        <div className="mx-4 mb-2 px-3 py-2 rounded-xl flex items-center gap-2 min-w-0"
-          style={{ background: 'rgba(140,82,255,0.08)', border: '1px solid rgba(140,82,255,0.2)' }}>
-          <Navigation size={14} className="flex-shrink-0" style={{ color: 'var(--primary)' }} />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>Shared Journey</p>
-            <p className="text-xs break-anywhere" style={{ color: 'var(--fg-muted)' }}>{post.journeyRoute} · {post.journeyDuration}</p>
-          </div>
-          <button type="button" className="text-xs font-medium px-2.5 py-2 rounded-lg flex-shrink-0 min-h-[44px]"
-            style={{ background: 'var(--primary)', color: '#fff' }}>
-            View
-          </button>
-        </div>
-      )}
-
-      {post.type === 'deal' && (
-        <div className="mx-4 mb-2 px-3 py-2 rounded-xl flex items-center gap-2 min-w-0"
-          style={{ background: 'rgba(224,92,26,0.08)', border: '1px solid rgba(224,92,26,0.2)' }}>
-          <Tag size={14} className="flex-shrink-0" style={{ color: '#E05C1A' }} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold tabular-nums price-inline" style={{ color: 'var(--fg)' }}>{post.dealPrice}</span>
-              {post.dealSaving && (
-                <span className="text-xs px-1.5 py-0.5 rounded font-medium"
-                  style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
-                  {post.dealSaving}
-                </span>
-              )}
-            </div>
-            <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{post.dealCategory}</p>
-          </div>
-          <button type="button" className="text-xs font-medium px-2.5 py-2 rounded-lg flex-shrink-0 min-h-[44px]"
-            style={{ background: '#E05C1A', color: '#fff' }}>
-            Book
-          </button>
-        </div>
-      )}
-
-      {post.type === 'question' && (
-        <div className="mx-4 mb-2 px-3 py-2 rounded-xl flex items-center gap-2"
-          style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.2)' }}>
-          <HelpCircle size={14} className="flex-shrink-0" style={{ color: '#06B6D4' }} />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold" style={{ color: '#06B6D4' }}>Local question</p>
-            {post.questionAnswered && (
-              <p className="text-xs" style={{ color: 'var(--fg-muted)' }}>{post.questionAnswerCount} answers</p>
-            )}
-          </div>
-          <button type="button" className="text-xs font-medium px-2.5 py-2 rounded-lg flex-shrink-0 min-h-[44px]"
-            style={{ background: '#06B6D4', color: '#fff' }}>
-            Answer
-          </button>
-        </div>
-      )}
-
-      <PostImages images={post.images} postId={post.id} />
-
-      <div className="px-3 sm:px-4 pt-2 pb-1 min-w-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-0 min-w-0">
-            <button type="button" onClick={() => onToggleLike(post.id)}
-              className="flex items-center gap-1.5 pr-3 pl-1 rounded-xl active:scale-95 transition-transform"
-              style={{ minHeight: 44, background: 'transparent' }}
-              aria-label={post.liked ? 'Unlike' : 'Like'}>
-              <Heart size={22} fill={post.liked ? '#EF4444' : 'none'} style={{ color: post.liked ? '#EF4444' : 'var(--fg-muted)' }} />
-              <span className="text-sm font-medium tabular-nums" style={{ color: post.liked ? '#EF4444' : 'var(--fg-muted)' }}>
-                {(post.likes + (post.liked ? 1 : 0)).toLocaleString()}
-              </span>
-            </button>
-
-            <button type="button" onClick={() => setCommentOpen(o => !o)}
-              className="flex items-center gap-1.5 pr-3 rounded-xl active:scale-95 transition-transform"
-              style={{ minHeight: 44, background: 'transparent' }}
-              aria-label="Comment">
-              <MessageCircle size={22} style={{ color: commentOpen ? 'var(--primary)' : 'var(--fg-muted)' }} />
-              <span className="text-sm font-medium tabular-nums" style={{ color: 'var(--fg-muted)' }}>{post.comments}</span>
-            </button>
-
-            <button type="button" className="flex items-center pr-3 active:scale-95 transition-transform"
-              style={{ minHeight: 44, minWidth: 44 }}
-              aria-label="Share">
-              <Send size={20} style={{ color: 'var(--fg-muted)' }} />
-            </button>
-          </div>
-
-          <button type="button" onClick={() => onToggleSave(post.id)}
-            className="flex items-center active:scale-95 transition-transform"
-            style={{ minHeight: 44, minWidth: 44, justifyContent: 'flex-end' }}
-            aria-label={post.saved ? 'Unsave' : 'Save'}>
-            <Bookmark size={22} fill={post.saved ? 'var(--primary)' : 'none'} style={{ color: post.saved ? 'var(--primary)' : 'var(--fg-muted)' }} />
-          </button>
-        </div>
-
-        {post.type === 'journey' && post.journeyBudget && (
-          <p className="text-xs mb-1 break-anywhere" style={{ color: 'var(--fg-muted)' }}>
-            <span style={{ color: 'var(--fg)', fontWeight: 600 }}>Historical cost: </span>{post.journeyBudget}
-          </p>
-        )}
-
-        <ExpandableCaption
-          authorFirstName={post.author.name.split(' ')[0]}
-          caption={post.caption}
-          lines={3}
-          className="mb-1"
-        />
-
-        {commentOpen && (
-          <div className="flex items-center gap-2 mt-2 mb-1 min-w-0">
-            <Avatar src="" size={32} own />
-            <input placeholder="Add a comment…"
-              className="flex-1 min-w-0 text-sm rounded-2xl px-4"
-              style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)', outline: 'none', height: 40 }}
-              onFocus={e => { e.target.style.borderColor = 'var(--primary)' }}
-              onBlur={e => { e.target.style.borderColor = 'var(--border)' }}
-            />
-            <button type="button" className="text-sm font-semibold px-4 rounded-2xl flex-shrink-0"
-              style={{ background: 'var(--primary)', color: '#fff', height: 40, minHeight: 44 }}>Post</button>
-          </div>
-        )}
-
-        <p className="text-xs mt-1 mb-3" style={{ color: 'var(--fg-muted)' }}>{post.timeAgo} ago</p>
-      </div>
-    </article>
-  )
-}
-
 // ─── App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
   const { theme, setTheme, resolved } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
-  const [posts, setPosts] = useState<Post[]>(initialPosts)
   const [activeNav, setActiveNavRaw] = useState(() => pathToNav(location.pathname))
-  const [following, setFollowing] = useState<Set<string>>(new Set(['d1']))
-  const [activeStory, setActiveStory] = useState<string | null>(null)
   const { user, profile, isAuthenticated: signedIn, isLoading, logout } = useAuth()
   const authReady = !isLoading
   const messageUnreadCount = useMessageUnreadCount(signedIn && authReady)
@@ -514,7 +155,6 @@ export default function App() {
   const [homeDeals, setHomeDeals] = useState<DealDto[]>([])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [headerMoreOpen, setHeaderMoreOpen] = useState(false)
-  const [feedTab, setFeedTab] = useState('following')
 
   useEffect(() => {
     const fromUrl = pathToNav(location.pathname)
@@ -825,30 +465,7 @@ export default function App() {
     </>
   )
 
-  function toggleLike(id: string) {
-    setPosts(prev => prev.map(p => p.id === id ? { ...p, liked: !p.liked } : p))
-  }
-  function toggleSave(id: string) {
-    if (!signedIn) {
-      setGuestPrompt('save')
-      return
-    }
-    setPosts(prev => prev.map(p => p.id === id ? { ...p, saved: !p.saved } : p))
-  }
-  function followPost(postId: string) {
-    if (!signedIn) {
-      setGuestPrompt('join')
-      return
-    }
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, author: { ...p.author, following: true } } : p))
-  }
-  function followSuggested(id: string) {
-    if (!signedIn) {
-      setGuestPrompt('join')
-      return
-    }
-    setFollowing(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-  }
+
 
   const navItems = [
     { label: 'Home', icon: <Home size={22} aria-hidden /> },
@@ -1586,7 +1203,12 @@ export default function App() {
               <div className="rounded-2xl p-4 mb-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--fg-muted)' }}>Explore</p>
                 <div className="flex flex-wrap gap-2">
-                  {categories.map(c => (
+                  {[
+                    { label: 'Stays', icon: '🏨' },
+                    { label: 'Deals', icon: '🏷️' },
+                    { label: 'Transport', icon: '🚗' },
+                    { label: 'Food', icon: '🍽️' },
+                  ].map(c => (
                     <button
                       key={c.label}
                       type="button"
@@ -1781,27 +1403,6 @@ export default function App() {
         />
       </div>
 
-      {activeStory && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.9)' }}
-          onClick={() => setActiveStory(null)}>
-          <button type="button" className="absolute top-4 right-4 p-2 rounded-full" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', cursor: 'pointer' }}
-            aria-label="Close story">
-            <X size={20} />
-          </button>
-          <div className="text-white text-center" onClick={e => e.stopPropagation()}>
-            {(() => {
-              const s = stories.find(st => st.id === activeStory)
-              return s ? (
-                <div className="max-w-sm mx-auto">
-                  <img src={s.avatar} alt={s.name} className="w-full rounded-2xl object-cover max-h-[70vh]" />
-                  <p className="mt-3 font-semibold">{s.name} · {s.place}</p>
-                </div>
-              ) : null
-            })()}
-          </div>
-        </div>
-      )}
 
       <InAppNotificationToast
         notification={activeToast}
