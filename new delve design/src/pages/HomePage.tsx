@@ -9,7 +9,14 @@ import {
 import { fetchHomePageData, type HomeFeedData, type NormalizedListing, type NormalizedDeal, type NormalizedJourney } from '../api/homeClient'
 import type { TransportResult } from '../data/transportData'
 import SafeImage from '../components/mobile/SafeImage'
-import { SkeletonCard, SectionEmpty, SectionError } from '../components/SectionStates'
+import { SkeletonCard, SectionError } from '../components/SectionStates'
+import {
+  SectionHeader,
+  ScrollRail,
+  SectionEmpty,
+  TravelerAvatar,
+  SaveButton,
+} from '../components/shared'
 
 export interface HomePageProps {
   onNavigate: (nav: string) => void
@@ -304,7 +311,7 @@ export default function HomePage({
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--fg-muted)' }}>
               Choose Destination
             </p>
-            <div className="flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+            <ScrollRail gap="sm" fadeEdges ariaLabel="Destinations rail">
               {DESTINATIONS.map(dest => {
                 const isSelected = (!selectedDestination && dest.id === 'all') || selectedDestination === dest.id
                 return (
@@ -325,12 +332,12 @@ export default function HomePage({
                   </button>
                 )
               })}
-            </div>
+            </ScrollRail>
           </div>
 
           {/* Mood Shortcuts */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
-            <span className="text-[11px] font-medium flex-shrink-0" style={{ color: 'var(--fg-muted)' }}>Quick ideas:</span>
+          <ScrollRail gap="sm" fadeEdges ariaLabel="Mood shortcuts rail">
+            <span className="text-[11px] font-medium flex-shrink-0 self-center" style={{ color: 'var(--fg-muted)' }}>Quick ideas:</span>
             {MOOD_SHORTCUTS.map(chip => (
               <button
                 key={chip.label}
@@ -347,7 +354,7 @@ export default function HomePage({
                 <span>{chip.label}</span>
               </button>
             ))}
-          </div>
+          </ScrollRail>
 
           {/* Proof points */}
           <div className="mt-4 pt-3 flex flex-wrap items-center gap-3 sm:gap-6 border-t text-[11px]" style={{ borderColor: 'var(--border)' }}>
@@ -369,25 +376,12 @@ export default function HomePage({
 
       {/* ─── 2. EXPLORE BY SERVICE (11 CATEGORIES) ─────────────────────────── */}
       <section className="mb-10 sm:mb-14">
-        <div className="flex items-end justify-between mb-3">
-          <div>
-            <h2 className="text-lg sm:text-xl font-bold m-0 mb-0.5" style={{ color: 'var(--fg)' }}>
-              Explore Delve Services
-            </h2>
-            <p className="text-xs m-0" style={{ color: 'var(--fg-muted)' }}>
-              All 11 ways Delve helps you plan and navigate your Namibian journey.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenExplore ? onOpenExplore() : onNavigate('Explore')}
-            className="text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
-            style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
-          >
-            <span>All categories</span>
-            <ChevronRight size={13} />
-          </button>
-        </div>
+        <SectionHeader
+          title="Explore Delve Services"
+          subtitle="All 11 ways Delve helps you plan and navigate your Namibian journey."
+          actionLabel="All categories"
+          onActionClick={() => onOpenExplore ? onOpenExplore() : onNavigate('Explore')}
+        />
 
         {/* 11 Services Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
@@ -438,37 +432,29 @@ export default function HomePage({
 
       {/* ─── 3. FEATURED SERVICES SHOWCASE (BACKEND CONNECTED) ─────────────── */}
       <section className="mb-10 sm:mb-14">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
-                Featured Experiences & Services
-              </h2>
-            </div>
-            <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-              Verified stays, activities, and dining across {selectedDestination || 'Namibia'}.
-            </p>
-          </div>
-
-          {/* Category Filter Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            {['All', 'Stay', 'Activity', 'Food', 'Guide', 'Shop'].map(cat => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setServiceFilter(cat)}
-                className="px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 cursor-pointer transition-all"
-                style={{
-                  background: serviceFilter === cat ? 'var(--primary)' : 'var(--surface)',
-                  color: serviceFilter === cat ? '#fff' : 'var(--fg-muted)',
-                  border: `1px solid ${serviceFilter === cat ? 'var(--primary)' : 'var(--border)'}`,
-                }}
-              >
-                {cat === 'All' ? 'All Services' : cat}
-              </button>
-            ))}
-          </div>
-        </div>
+        <SectionHeader
+          title="Featured Experiences & Services"
+          subtitle={`Verified stays, activities, and dining across ${selectedDestination || 'Namibia'}.`}
+          badge={
+            <ScrollRail gap="sm" fadeEdges className="max-w-md">
+              {['All', 'Stay', 'Activity', 'Food', 'Guide', 'Shop'].map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setServiceFilter(cat)}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 cursor-pointer transition-all"
+                  style={{
+                    background: serviceFilter === cat ? 'var(--primary)' : 'var(--surface)',
+                    color: serviceFilter === cat ? '#fff' : 'var(--fg-muted)',
+                    border: `1px solid ${serviceFilter === cat ? 'var(--primary)' : 'var(--border)'}`,
+                  }}
+                >
+                  {cat === 'All' ? 'All Services' : cat}
+                </button>
+              ))}
+            </ScrollRail>
+          }
+        />
 
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -482,7 +468,7 @@ export default function HomePage({
           <SectionEmpty
             icon={<Search size={24} />}
             title="No services found"
-            body="Try selecting another category or destination."
+            description="Try selecting another category or destination."
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -502,18 +488,14 @@ export default function HomePage({
                     >
                       {listing.category}
                     </span>
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation()
-                        toggleSave(listing.id)
-                      }}
-                      className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md transition-transform active:scale-90"
-                      style={{ background: 'rgba(0,0,0,0.5)', color: savedItems.has(listing.id) ? 'var(--primary)' : '#fff', border: 'none', cursor: 'pointer' }}
-                      aria-label="Save service"
-                    >
-                      <Bookmark size={15} fill={savedItems.has(listing.id) ? 'var(--primary)' : 'none'} />
-                    </button>
+                    <SaveButton
+                      isSaved={savedItems.has(listing.id)}
+                      onClick={() => toggleSave(listing.id)}
+                      size="sm"
+                      variant="filled"
+                      className="absolute top-3 right-3"
+                      ariaLabel="Save service"
+                    />
                   </div>
 
                   <div className="p-4">
@@ -601,28 +583,13 @@ export default function HomePage({
       {/* ─── 4. DEALS FOR THIS PLACE (BACKEND CONNECTED) ───────────────────── */}
       {data?.deals && data.deals.length > 0 && (
         <section className="mb-10 sm:mb-14">
-          <div className="flex items-end justify-between mb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Tag size={18} style={{ color: '#E05C1A' }} />
-                <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
-                  Deals & Resident Rates
-                </h2>
-              </div>
-              <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-                Genuine savings offered directly by local operators. No intermediary fees.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('Deals')}
-              className="text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
-              style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
-            >
-              <span>View all deals</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
+          <SectionHeader
+            title="Deals & Resident Rates"
+            subtitle="Genuine savings offered directly by local operators. No intermediary fees."
+            icon={<Tag size={18} style={{ color: '#E05C1A' }} />}
+            actionLabel="View all deals"
+            onActionClick={() => onNavigate('Deals')}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {data.deals.slice(0, 3).map(deal => (
@@ -640,17 +607,14 @@ export default function HomePage({
                   >
                     {deal.discountSummary}
                   </span>
-                  <button
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation()
-                      toggleSave(deal.id)
-                    }}
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md"
-                    style={{ background: 'rgba(0,0,0,0.5)', color: savedItems.has(deal.id) ? 'var(--primary)' : '#fff', border: 'none', cursor: 'pointer' }}
-                  >
-                    <Bookmark size={15} fill={savedItems.has(deal.id) ? 'var(--primary)' : 'none'} />
-                  </button>
+                  <SaveButton
+                    isSaved={savedItems.has(deal.id)}
+                    onClick={() => toggleSave(deal.id)}
+                    size="sm"
+                    variant="filled"
+                    className="absolute top-3 right-3"
+                    ariaLabel="Save deal"
+                  />
                 </div>
 
                 <div className="p-4">
@@ -683,36 +647,21 @@ export default function HomePage({
 
       {/* ─── 5. TRANSPORT DISCOVERY RAIL ───────────────────────────────────── */}
       <section className="mb-10 sm:mb-14">
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Car size={18} style={{ color: '#3B82F6' }} />
-              <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
-                Transport Options
-              </h2>
-            </div>
-            <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-              From airport transfers to 4x4 rentals, community rides and intercity buses.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenTransport ? onOpenTransport() : onNavigate('Transport')}
-            className="text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
-            style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
-          >
-            <span>All transport</span>
-            <ChevronRight size={14} />
-          </button>
-        </div>
+        <SectionHeader
+          title="Transport Options"
+          subtitle="From airport transfers to 4x4 rentals, community rides and intercity buses."
+          icon={<Car size={18} style={{ color: '#3B82F6' }} />}
+          actionLabel="All transport"
+          onActionClick={() => onOpenTransport ? onOpenTransport() : onNavigate('Transport')}
+        />
 
         {data?.transport && data.transport.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {data.transport.slice(0, 4).map(t => (
+          <ScrollRail gap="md" fadeEdges ariaLabel="Transport options rail">
+            {data.transport.map(t => (
               <div
                 key={t.id}
                 onClick={() => onOpenTransport ? onOpenTransport() : onNavigate('Transport')}
-                className="p-4 rounded-2xl flex flex-col justify-between transition-all hover:-translate-y-1 cursor-pointer"
+                className="p-4 rounded-2xl flex flex-col justify-between transition-all hover:-translate-y-1 cursor-pointer w-[280px] sm:w-[300px] shrink-0"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >
                 <div>
@@ -768,12 +717,12 @@ export default function HomePage({
                 </div>
               </div>
             ))}
-          </div>
+          </ScrollRail>
         ) : (
           <SectionEmpty
             icon={<Car size={24} />}
             title="No transport routes available"
-            body="Transport listings and vehicle routes will appear here once published."
+            description="Transport listings and vehicle routes will appear here once published."
           />
         )}
       </section>
@@ -781,28 +730,13 @@ export default function HomePage({
       {/* ─── 6. JOURNEYS TO BORROW ─────────────────────────────────────────── */}
       {data?.journeys && data.journeys.length > 0 && (
         <section className="mb-10 sm:mb-14">
-          <div className="flex items-end justify-between mb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Navigation size={18} style={{ color: '#6366F1' }} />
-                <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
-                  Journeys to Borrow
-                </h2>
-              </div>
-              <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-                Tested itineraries shared by travelers with transparent historical costs.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('Journeys')}
-              className="text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
-              style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
-            >
-              <span>Explore all journeys</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
+          <SectionHeader
+            title="Journeys to Borrow"
+            subtitle="Tested itineraries shared by travelers with transparent historical costs."
+            icon={<Navigation size={18} style={{ color: '#6366F1' }} />}
+            actionLabel="Explore all journeys"
+            onActionClick={() => onNavigate('Journeys')}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {data.journeys.slice(0, 2).map(journey => (
@@ -825,7 +759,12 @@ export default function HomePage({
                 <div className="p-4 sm:w-3/5 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <SafeImage src={journey.creatorAvatar} alt={journey.creatorName} className="w-6 h-6 rounded-full object-cover" kind="avatar" />
+                      <TravelerAvatar
+                        src={journey.creatorAvatar}
+                        alt={journey.creatorName}
+                        fallbackInitials={journey.creatorName}
+                        size="sm"
+                      />
                       <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{journey.creatorName}</span>
                     </div>
 
@@ -856,16 +795,10 @@ export default function HomePage({
 
       {/* ─── 7. EASY ON THE WALLET (BUDGET PICKS) ─────────────────────────── */}
       <section className="mb-10 sm:mb-14">
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <h2 className="text-lg sm:text-xl font-bold m-0 mb-0.5" style={{ color: 'var(--fg)' }}>
-              Easy on the Wallet
-            </h2>
-            <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-              High-value experiences and self-guided highlights under N$ 600 or with local rates.
-            </p>
-          </div>
-        </div>
+        <SectionHeader
+          title="Easy on the Wallet"
+          subtitle="High-value experiences and self-guided highlights under N$ 600 or with local rates."
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {budgetListings.map(item => (
@@ -905,28 +838,13 @@ export default function HomePage({
 
       {/* ─── 8. ASK LOCALS (COMMUNITY ADVICE) ──────────────────────────────── */}
       <section className="mb-10 sm:mb-14">
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <MessageSquare size={18} style={{ color: '#14B8A6' }} />
-              <h2 className="text-lg sm:text-xl font-bold m-0" style={{ color: 'var(--fg)' }}>
-                Ask Locals
-              </h2>
-            </div>
-            <p className="text-xs sm:text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-              Real travel questions answered by Namibian hosts, drivers, and local guides.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onNavigate('Communities')}
-            className="text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
-            style={{ color: 'var(--primary)', background: 'none', border: 'none' }}
-          >
-            <span>Browse Q&A</span>
-            <ChevronRight size={14} />
-          </button>
-        </div>
+        <SectionHeader
+          title="Ask Locals"
+          subtitle="Real travel questions answered by Namibian hosts, drivers, and local guides."
+          icon={<MessageSquare size={18} style={{ color: '#14B8A6' }} />}
+          actionLabel="Browse Q&A"
+          onActionClick={() => onNavigate('Communities')}
+        />
 
         <div className="p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <div className="max-w-xl">

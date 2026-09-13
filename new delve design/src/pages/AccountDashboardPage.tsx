@@ -13,6 +13,7 @@ import type { TravelerProfileDto, JourneySummary, EventDto } from '@delve/contra
 import { listMyJourneys } from '../api/journeyClient'
 import { fetchEvents } from '../api/socialClient'
 import EventCoverMedia from '../components/EventCoverMedia'
+import { SectionHeader, SectionEmpty, TravelerAvatar } from '../components/shared'
 
 export type AccountNavTarget =
   | 'Profile'
@@ -79,31 +80,7 @@ function greetingForNow() {
   return 'Good evening'
 }
 
-function SectionHeader({
-  label,
-  action,
-  onAction,
-}: {
-  label: string
-  action: string
-  onAction?: () => void
-}) {
-  return (
-    <div className="flex items-center justify-between mb-3 px-1">
-      <h2 className="font-display text-lg font-bold" style={{ color: 'var(--fg)' }}>{label}</h2>
-      {onAction && (
-        <button
-          type="button"
-          onClick={onAction}
-          className="text-sm font-semibold active:opacity-70"
-          style={{ color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}
-        >
-          {action}
-        </button>
-      )}
-    </div>
-  )
-}
+
 
 export default function AccountDashboardPage({
   onNavigate,
@@ -118,6 +95,7 @@ export default function AccountDashboardPage({
   signedIn = true,
 }: AccountDashboardPageProps) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [coverFailed, setCoverFailed] = useState(false)
   const [myJourneys, setMyJourneys] = useState<JourneySummary[]>([])
   const [journeysLoading, setJourneysLoading] = useState(false)
@@ -146,11 +124,13 @@ export default function AccountDashboardPage({
         const profile = await fetchOnboarding()
         if (cancelled) return
         setCoverUrl(profile.coverUrl?.trim() || null)
+        setAvatarUrl(profile.avatarUrl?.trim() || null)
         setCoverFailed(false)
         setCompletionPercent(computeProfileCompletionPercent(profile as TravelerProfileDto))
       } catch {
         if (!cancelled) {
           setCoverUrl(null)
+          setAvatarUrl(null)
           setCoverFailed(false)
           // Keep completion unknown — do not flash 0% on a transient failure.
           setCompletionPercent(null)
@@ -275,17 +255,25 @@ export default function AccountDashboardPage({
           </>
         )}
 
-        <div className="relative z-[1]">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.75)' }}>
-            Your account
-          </p>
-          <p className="text-sm font-medium mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>
-            {greetingForNow()}
-          </p>
-          <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-white mb-4 break-words [overflow-wrap:anywhere]">
-            {formatUsername(travelerName) || travelerName}
-          </h1>
-          <div className="flex flex-wrap gap-2">
+        <div className="relative z-[1] flex items-start gap-4">
+          <TravelerAvatar
+            src={avatarUrl || undefined}
+            alt={travelerName}
+            fallbackInitials={travelerName}
+            size="lg"
+            className="border-2 border-white/40 shadow-sm shrink-0 mt-0.5"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.75)' }}>
+              Your account
+            </p>
+            <p className="text-sm font-medium mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>
+              {greetingForNow()}
+            </p>
+            <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-white mb-4 break-words [overflow-wrap:anywhere]">
+              {formatUsername(travelerName) || travelerName}
+            </h1>
+            <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => onNavigate('Profile')}
@@ -319,6 +307,7 @@ export default function AccountDashboardPage({
                 Settings
               </button>
             )}
+            </div>
           </div>
         </div>
 
@@ -430,26 +419,30 @@ export default function AccountDashboardPage({
 
 
         {/* Your journeys */}
-        <SectionHeader label="Your journeys" action="See all" onAction={() => onNavigate('Journeys')} />
+        <SectionHeader
+          title="Your journeys"
+          actionLabel="See all"
+          onActionClick={() => onNavigate('Journeys')}
+        />
         {journeysLoading ? (
           <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>Loading journeys…</p>
         ) : myJourneys.length === 0 ? (
-          <div
-            className="rounded-2xl p-4 mb-4 text-center"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-          >
-            <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>No journeys yet</p>
-            <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
-              Share a route you traveled to help other Delvers plan.
-            </p>
-            <button
-              type="button"
-              onClick={() => onNavigate('Journeys')}
-              className="rounded-xl px-4 py-2 text-sm font-semibold text-white"
-              style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
-            >
-              Create journey
-            </button>
+          <div className="mb-4">
+            <SectionEmpty
+              icon={<Navigation size={24} />}
+              title="No journeys yet"
+              description="Share a route you traveled to help other Delvers plan."
+              action={
+                <button
+                  type="button"
+                  onClick={() => onNavigate('Journeys')}
+                  className="rounded-xl px-4 py-2 text-sm font-semibold text-white cursor-pointer"
+                  style={{ background: 'var(--primary)', border: 'none' }}
+                >
+                  Create journey
+                </button>
+              }
+            />
           </div>
         ) : (
           myJourneys.map(journey => (
@@ -500,26 +493,30 @@ export default function AccountDashboardPage({
         )}
 
         {/* Events you're going to */}
-        <SectionHeader label="Events you're going to" action="See all" onAction={() => onNavigate('Events')} />
+        <SectionHeader
+          title="Events you're going to"
+          actionLabel="See all"
+          onActionClick={() => onNavigate('Events')}
+        />
         {eventsLoading ? (
           <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>Loading events…</p>
         ) : goingEvents.length === 0 ? (
-          <div
-            className="rounded-2xl p-4 mb-4 text-center"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-          >
-            <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>No upcoming events</p>
-            <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
-              RSVP to meetups and activities to see them here.
-            </p>
-            <button
-              type="button"
-              onClick={() => onNavigate('Events')}
-              className="rounded-xl px-4 py-2 text-sm font-semibold text-white"
-              style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
-            >
-              Discover events
-            </button>
+          <div className="mb-4">
+            <SectionEmpty
+              icon={<Calendar size={24} />}
+              title="No upcoming events"
+              description="RSVP to meetups and activities to see them here."
+              action={
+                <button
+                  type="button"
+                  onClick={() => onNavigate('Events')}
+                  className="rounded-xl px-4 py-2 text-sm font-semibold text-white cursor-pointer"
+                  style={{ background: 'var(--primary)', border: 'none' }}
+                >
+                  Discover events
+                </button>
+              }
+            />
           </div>
         ) : (
           goingEvents.map(event => {

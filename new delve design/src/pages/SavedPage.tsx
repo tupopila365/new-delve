@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Bookmark, Calendar, Image as ImageIcon, MapPin, MessageCircle } from 'lucide-react'
 import type { SaveDto } from '@delve/contracts'
 import { fetchSaves, unsaveItem } from '../api/socialClient'
+import { SectionHeader, ScrollRail, SectionEmpty, SaveButton } from '../components/shared'
 
 interface SavedPageProps {
   onOpenPostAuthor?: (username: string) => void
@@ -71,12 +72,15 @@ export default function SavedPage({
   }
 
   return (
-    <div className="pb-4">
-      <div className="px-3 sm:px-0 py-3" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <h1 className="font-display text-xl font-extrabold m-0 mb-3" style={{ color: 'var(--fg)' }}>
-          Saved
-        </h1>
-        <div className="flex gap-2 flex-wrap">
+    <div className="pb-8">
+      <div className="px-3 sm:px-0 pt-4 pb-2">
+        <SectionHeader
+          title="Saved Items"
+          subtitle="Your personal collection of saved journeys, community threads, deals, and events."
+          icon={<Bookmark size={20} />}
+        />
+
+        <ScrollRail gap="sm" fadeEdges className="mt-2">
           {([
             { key: 'ALL' as const, label: 'All' },
             { key: 'POST' as const, label: 'Posts' },
@@ -89,10 +93,10 @@ export default function SavedPage({
               key={tab.key}
               type="button"
               onClick={() => setFilter(tab.key)}
-              className="rounded-xl px-3.5 py-2 text-sm font-semibold"
+              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-150 active:scale-95"
               style={{
                 border: `1px solid ${filter === tab.key ? 'var(--primary)' : 'var(--border)'}`,
-                background: filter === tab.key ? 'var(--primary)' : 'transparent',
+                background: filter === tab.key ? 'var(--primary)' : 'var(--surface)',
                 color: filter === tab.key ? '#fff' : 'var(--fg)',
                 cursor: 'pointer',
               }}
@@ -100,7 +104,7 @@ export default function SavedPage({
               {tab.label}
             </button>
           ))}
-        </div>
+        </ScrollRail>
       </div>
 
       {loading && (
@@ -110,12 +114,12 @@ export default function SavedPage({
         <p className="px-4 py-8 text-sm" style={{ color: 'var(--auth-danger)' }} role="alert">{error}</p>
       )}
       {!loading && !error && visible.length === 0 && (
-        <div className="px-6 py-14 text-center">
-          <Bookmark size={28} style={{ color: 'var(--fg-muted)', margin: '0 auto 10px' }} />
-          <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>Nothing saved yet</p>
-          <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-            Save Delvers posts, community threads, events, journeys, and deals to find them here later.
-          </p>
+        <div className="px-3 sm:px-0 py-6">
+          <SectionEmpty
+            icon={<Bookmark size={26} />}
+            title="Nothing saved yet"
+            description="Save Delvers posts, community threads, events, journeys, and deals to find them here later."
+          />
         </div>
       )}
 
@@ -127,7 +131,7 @@ export default function SavedPage({
           return (
             <div
               key={item.id}
-              className="flex gap-3 overflow-hidden rounded-2xl p-3"
+              className="flex items-start gap-3 overflow-hidden rounded-2xl p-3"
               style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
             >
               <div
@@ -161,12 +165,12 @@ export default function SavedPage({
                         : item.targetType}{' '}
                   · {new Date(item.createdAt).toLocaleDateString()}
                 </p>
-                <div className="flex gap-3 mt-2">
+                <div className="flex items-center gap-3 mt-2">
                   {item.targetType === 'COMMUNITY_THREAD' && onOpenCommunityThread && (
                     <button
                       type="button"
                       onClick={() => onOpenCommunityThread(item.targetId)}
-                      className="text-xs font-semibold"
+                      className="text-xs font-semibold hover:underline"
                       style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
                     >
                       Open
@@ -176,7 +180,7 @@ export default function SavedPage({
                     <button
                       type="button"
                       onClick={() => onOpenEvent(item.targetId)}
-                      className="text-xs font-semibold"
+                      className="text-xs font-semibold hover:underline"
                       style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
                     >
                       Open
@@ -186,7 +190,7 @@ export default function SavedPage({
                     <button
                       type="button"
                       onClick={() => onOpenJourney(item.targetId)}
-                      className="text-xs font-semibold"
+                      className="text-xs font-semibold hover:underline"
                       style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
                     >
                       Open
@@ -196,22 +200,21 @@ export default function SavedPage({
                     <button
                       type="button"
                       onClick={() => onOpenDeal(item.targetId)}
-                      className="text-xs font-semibold"
+                      className="text-xs font-semibold hover:underline"
                       style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
                     >
                       Open
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => void remove(item)}
-                    className="text-xs font-semibold"
-                    style={{ background: 'none', border: 'none', color: 'var(--fg-muted)', cursor: 'pointer', padding: 0 }}
-                  >
-                    Remove
-                  </button>
                 </div>
               </div>
+              <SaveButton
+                isSaved={true}
+                onClick={() => void remove(item)}
+                size="sm"
+                variant="ghost"
+                ariaLabel="Remove from saved"
+              />
             </div>
           )
         })}

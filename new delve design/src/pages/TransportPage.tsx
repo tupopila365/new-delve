@@ -10,7 +10,8 @@ import { quickNeeds, type TransportGroup, type TransportResult } from '../data/t
 import TransportDetailPage from './TransportDetailPage'
 import { fetchPublicListings } from '../api/listingClient'
 import { listingToTransportResult } from '../api/homeClient'
-import { SectionEmpty, SkeletonCard } from '../components/SectionStates'
+import { SkeletonCard } from '../components/SectionStates'
+import { ScrollRail, SectionEmpty, TravelerAvatar, SaveButton } from '../components/shared'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -251,9 +252,12 @@ function ListingCard({ result, saved, liked, onSave, onLike, onViewDetail }: {
       style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}
     >
       <div className="flex items-center gap-3 px-4 py-3">
-        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${color}` }}>
-          <img src={avatar} alt={result.operator} className="w-full h-full object-cover" />
-        </div>
+        <TravelerAvatar
+          src={avatar}
+          alt={result.operator}
+          fallbackInitials={result.operator}
+          size="md"
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-bold m-0 truncate" style={{ color: 'var(--fg)' }}>
@@ -267,15 +271,13 @@ function ListingCard({ result, saved, liked, onSave, onLike, onViewDetail }: {
             {result.transportMode} · {result.origin} → {result.destination}
           </p>
         </div>
-        <button
-          type="button"
+        <SaveButton
+          isSaved={saved}
           onClick={() => onSave(result.id)}
-          className="p-2 rounded-xl cursor-pointer"
-          style={{ color: saved ? 'var(--primary)' : 'var(--fg-muted)', background: 'none', border: 'none' }}
-          aria-label="Save"
-        >
-          <Bookmark size={18} fill={saved ? 'var(--primary)' : 'none'} />
-        </button>
+          variant="ghost"
+          size="md"
+          ariaLabel="Save transport option"
+        />
       </div>
 
       <div className="px-4 pb-4">
@@ -433,7 +435,7 @@ export default function TransportPage({
         className="mb-3 sm:mb-4 sm:rounded-2xl overflow-hidden"
         style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}
       >
-        <div className="flex gap-3 sm:gap-4 overflow-x-auto px-3 sm:px-4 py-3" style={{ scrollbarWidth: 'none' }}>
+        <ScrollRail gap="sm" fadeEdges ariaLabel="Transport categories rail" className="px-3 sm:px-4 py-3">
           {highlights.map(h => {
             const active = activeHighlight === h.label
             return (
@@ -461,11 +463,11 @@ export default function TransportPage({
               </button>
             )
           })}
-        </div>
+        </ScrollRail>
       </div>
 
       {/* Quick needs chips */}
-      <div className="flex gap-2 mb-3 sm:mb-4 overflow-x-auto px-3 sm:px-0" style={{ scrollbarWidth: 'none' }}>
+      <ScrollRail gap="sm" fadeEdges ariaLabel="Quick filter needs rail" className="mb-3 sm:mb-4 px-3 sm:px-0">
         {quickNeeds.slice(0, 6).map(need => {
           const active = activeQuickNeeds.has(need)
           return (
@@ -485,7 +487,7 @@ export default function TransportPage({
             </button>
           )
         })}
-      </div>
+      </ScrollRail>
 
       {loading ? (
         <div className="flex flex-col gap-3 sm:gap-4">
@@ -497,7 +499,7 @@ export default function TransportPage({
           <SectionEmpty
             icon={<Car size={24} />}
             title="No transport listings available"
-            body="Published transport options matching your filters will appear here."
+            description="Published transport options matching your filters will appear here."
           />
         </div>
       ) : (

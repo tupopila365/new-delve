@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Search, Tag, X } from 'lucide-react'
 import DealFeedCard from '../components/deals/DealFeedCard'
 import DealCatalogDetail from '../components/deals/DealCatalogDetail'
-import { SectionEmpty, SkeletonCard } from '../components/SectionStates'
+import { SkeletonCard } from '../components/SectionStates'
+import { SectionHeader, ScrollRail, SectionEmpty } from '../components/shared'
 import { formatMoney } from '../lib/formatMoney'
 import MyClaimsPage from './MyClaimsPage'
 import { fetchPublicDeals, fetchPublicDeal } from '../api/dealClient'
@@ -34,7 +35,7 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap"
+      className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all active:scale-95"
       style={{
         background: active ? 'var(--primary)' : 'var(--surface)',
         color: active ? '#fff' : 'var(--fg)',
@@ -178,13 +179,12 @@ export default function DealsPage({
   return (
     <div className="pb-8" style={{ background: 'var(--bg)', minHeight: '100dvh' }}>
       <div className="px-4 sm:px-0 pt-4 mb-4">
-        <h1 className="font-display text-2xl font-extrabold m-0 mb-1" style={{ color: 'var(--fg)' }}>
-          Deals
-        </h1>
-        <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-          Exclusive offers and promotional rates from verified Namibian operators.
-        </p>
-        <div className="flex gap-2 mt-3">
+        <SectionHeader
+          title="Deals & Offers"
+          subtitle="Exclusive offers and promotional rates from verified Namibian operators."
+          icon={<Tag size={20} />}
+        />
+        <div className="flex gap-2 mt-2">
           {(
             [
               { id: 'discover', label: 'Discover' },
@@ -223,31 +223,39 @@ export default function DealsPage({
             </div>
           </div>
 
-          <div className="px-4 sm:px-0 mb-3 flex gap-2 flex-wrap">
-            <Chip active={sort === 'all'} label="All active" onClick={() => setSort('all')} />
-            <Chip active={sort === 'discount'} label="Highest discount" onClick={() => setSort('discount')} />
-            <Chip active={sort === 'ending-soon'} label="Ending soon" onClick={() => setSort('ending-soon')} />
+          <div className="px-4 sm:px-0 mb-3">
+            <ScrollRail gap="sm" fadeEdges>
+              <Chip active={sort === 'all'} label="All active" onClick={() => setSort('all')} />
+              <Chip active={sort === 'discount'} label="Highest discount" onClick={() => setSort('discount')} />
+              <Chip active={sort === 'ending-soon'} label="Ending soon" onClick={() => setSort('ending-soon')} />
+            </ScrollRail>
           </div>
 
-          <div className="px-4 sm:px-0 mb-3 flex gap-2 overflow-x-auto pb-1">
-            <Chip active={!audienceFilter} label="All travelers" onClick={() => setAudienceFilter('')} />
-            {DEAL_AUDIENCES.map(a => (
-              <Chip key={a} active={audienceFilter === a} label={a} onClick={() => setAudienceFilter(a)} />
-            ))}
+          <div className="px-4 sm:px-0 mb-3">
+            <ScrollRail gap="sm" fadeEdges>
+              <Chip active={!audienceFilter} label="All travelers" onClick={() => setAudienceFilter('')} />
+              {DEAL_AUDIENCES.map(a => (
+                <Chip key={a} active={audienceFilter === a} label={a} onClick={() => setAudienceFilter(a)} />
+              ))}
+            </ScrollRail>
           </div>
 
-          <div className="px-4 sm:px-0 mb-3 flex gap-2 overflow-x-auto pb-1">
-            <Chip active={!cityFilter} label="All destinations" onClick={() => setCityFilter('')} />
-            {DEAL_CITIES.map(city => (
-              <Chip key={city} active={cityFilter === city} label={city} onClick={() => setCityFilter(city)} />
-            ))}
+          <div className="px-4 sm:px-0 mb-3">
+            <ScrollRail gap="sm" fadeEdges>
+              <Chip active={!cityFilter} label="All destinations" onClick={() => setCityFilter('')} />
+              {DEAL_CITIES.map(city => (
+                <Chip key={city} active={cityFilter === city} label={city} onClick={() => setCityFilter(city)} />
+              ))}
+            </ScrollRail>
           </div>
 
-          <div className="px-4 sm:px-0 mb-4 flex gap-2 overflow-x-auto pb-1">
-            <Chip active={!categoryFilter} label="All categories" onClick={() => setCategoryFilter('')} />
-            {DEAL_SERVICE_CATEGORIES.map(cat => (
-              <Chip key={cat} active={categoryFilter === cat} label={cat} onClick={() => setCategoryFilter(cat)} />
-            ))}
+          <div className="px-4 sm:px-0 mb-4">
+            <ScrollRail gap="sm" fadeEdges>
+              <Chip active={!categoryFilter} label="All categories" onClick={() => setCategoryFilter('')} />
+              {DEAL_SERVICE_CATEGORIES.map(cat => (
+                <Chip key={cat} active={categoryFilter === cat} label={cat} onClick={() => setCategoryFilter(cat)} />
+              ))}
+            </ScrollRail>
           </div>
 
           {featured.length > 0 && sort === 'all' && !query.trim() && !cityFilter && !categoryFilter && !audienceFilter && (
@@ -255,11 +263,11 @@ export default function DealsPage({
               <p className="text-xs font-bold uppercase tracking-wider m-0 mb-2" style={{ color: 'var(--fg-muted)' }}>
                 Featured
               </p>
-              <div className="flex gap-3 overflow-x-auto pb-1">
+              <ScrollRail gap="md" fadeEdges>
                 {featured.map(deal => (
                   <FeaturedDealTile key={deal.id} deal={deal} onOpen={setSelectedDealId} />
                 ))}
-              </div>
+              </ScrollRail>
             </div>
           )}
 
@@ -270,8 +278,12 @@ export default function DealsPage({
               <SkeletonCard height={280} />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="px-4 sm:px-0">
-              <SectionEmpty icon={<Tag size={20} />} title="No matching deals" body="Try another destination, category, or search term." />
+            <div className="px-4 sm:px-0 py-4">
+              <SectionEmpty
+                icon={<Tag size={24} />}
+                title="No matching deals"
+                description="Try another destination, category, or search term to discover exclusive rates."
+              />
             </div>
           ) : grouped ? (
             <div className="flex flex-col">
