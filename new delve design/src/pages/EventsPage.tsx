@@ -10,6 +10,7 @@ import FeaturedEvent from '../components/events/FeaturedEvent'
 import EventsPageSkeleton from '../components/events/EventsPageSkeleton'
 import { EVENT_CATEGORIES, QUICK_FILTERS, type QuickFilterId } from '../components/events/eventCategories'
 import { applyDiscoverFilters, pickFeaturedEvent } from '../components/events/eventFilters'
+import { SectionHeader, ScrollRail, SectionEmpty } from '../components/shared'
 
 type Tab = 'discover' | 'hosting' | 'attending'
 
@@ -174,54 +175,36 @@ export default function EventsPage({
         className="px-3 sm:px-0 py-4"
         style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="font-display text-xl font-extrabold m-0" style={{ color: 'var(--fg)' }}>
-              Events
-            </h1>
-            {tab === 'discover' && (
-              <p className="text-sm m-0 mt-1" style={{ color: 'var(--fg-muted)' }}>
-                Discover what&apos;s happening around you
-              </p>
-            )}
-          </div>
-          {signedIn && onCreateEvent && (
-            <button
-              type="button"
-              onClick={onCreateEvent}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-white flex-shrink-0 min-h-[44px]"
-              style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
-            >
-              <Plus size={16} /> Create
-            </button>
-          )}
-        </div>
+        <SectionHeader
+          title="Events"
+          subtitle={tab === 'discover' ? "Discover what's happening around you" : undefined}
+          actionLabel={signedIn && onCreateEvent ? "Create event" : undefined}
+          onActionClick={signedIn && onCreateEvent ? onCreateEvent : undefined}
+        />
       </div>
 
-      <div
-        className="px-3 sm:px-0 py-2 flex gap-2 overflow-x-auto scrollbar-none"
-        style={{ borderBottom: '1px solid var(--border)' }}
-      >
-        {([
-          { key: 'discover' as const, label: 'Discover' },
-          { key: 'hosting' as const, label: 'My events' },
-          { key: 'attending' as const, label: 'My plans' },
-        ]).map(t => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className="rounded-xl px-3.5 py-2 text-sm font-semibold whitespace-nowrap min-h-[44px]"
-            style={{
-              border: `1px solid ${tab === t.key ? 'var(--primary)' : 'var(--border)'}`,
-              background: tab === t.key ? 'var(--primary)' : 'transparent',
-              color: tab === t.key ? '#fff' : 'var(--fg)',
-              cursor: 'pointer',
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="px-3 sm:px-0 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
+        <ScrollRail gap="sm" fadeEdges ariaLabel="Event tabs">
+          {([
+            { key: 'discover' as const, label: 'Discover' },
+            { key: 'hosting' as const, label: 'My events' },
+            { key: 'attending' as const, label: 'My plans' },
+          ]).map(t => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className="rounded-xl px-3.5 py-2 text-sm font-semibold whitespace-nowrap min-h-[44px] cursor-pointer"
+              style={{
+                border: `1px solid ${tab === t.key ? 'var(--primary)' : 'var(--border)'}`,
+                background: tab === t.key ? 'var(--primary)' : 'transparent',
+                color: tab === t.key ? '#fff' : 'var(--fg)',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </ScrollRail>
       </div>
 
       {tab === 'discover' && (
@@ -250,46 +233,50 @@ export default function EventsPage({
             </div>
           </div>
 
-          <div className="px-3 sm:px-0 py-2 flex gap-2 overflow-x-auto scrollbar-none">
-            {QUICK_FILTERS.map(f => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => {
-                  if (f.id === 'following' && !signedIn) {
-                    onSignIn?.()
-                    return
-                  }
-                  setQuickFilter(f.id)
-                }}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
-                style={chipStyle(quickFilter === f.id)}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="px-3 sm:px-0 py-2">
+            <ScrollRail gap="sm" fadeEdges ariaLabel="Event quick filters">
+              {QUICK_FILTERS.map(f => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => {
+                    if (f.id === 'following' && !signedIn) {
+                      onSignIn?.()
+                      return
+                    }
+                    setQuickFilter(f.id)
+                  }}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
+                  style={chipStyle(quickFilter === f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </ScrollRail>
           </div>
 
-          <div className="px-3 sm:px-0 pb-3 flex gap-2 overflow-x-auto scrollbar-none">
-            <button
-              type="button"
-              onClick={() => setCategory(null)}
-              className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
-              style={chipStyle(!category)}
-            >
-              All categories
-            </button>
-            {EVENT_CATEGORIES.map(cat => (
+          <div className="px-3 sm:px-0 pb-3">
+            <ScrollRail gap="sm" fadeEdges ariaLabel="Event categories">
               <button
-                key={cat}
                 type="button"
-                onClick={() => setCategory(prev => (prev === cat ? null : cat))}
+                onClick={() => setCategory(null)}
                 className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
-                style={chipStyle(category === cat)}
+                style={chipStyle(!category)}
               >
-                {cat}
+                All categories
               </button>
-            ))}
+              {EVENT_CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategory(prev => (prev === cat ? null : cat))}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
+                  style={chipStyle(category === cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </ScrollRail>
           </div>
         </>
       )}
@@ -331,19 +318,24 @@ export default function EventsPage({
       )}
 
       {!loading && !error && (tab === 'discover' || signedIn) && listEvents.length === 0 && !featured && (
-        <div className="px-6 py-14 text-center">
-          <Calendar size={28} style={{ color: 'var(--fg-muted)', margin: '0 auto 10px' }} />
-          <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>{emptyCopy}</p>
-          {tab === 'hosting' && signedIn && onCreateEvent && (
-            <button
-              type="button"
-              onClick={onCreateEvent}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white min-h-[44px]"
-              style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
-            >
-              <Plus size={16} /> Create event
-            </button>
-          )}
+        <div className="px-3 sm:px-0 py-8">
+          <SectionEmpty
+            icon={<Calendar size={28} />}
+            title="No events found"
+            description={emptyCopy}
+            action={
+              tab === 'hosting' && signedIn && onCreateEvent ? (
+                <button
+                  type="button"
+                  onClick={onCreateEvent}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white min-h-[44px] cursor-pointer"
+                  style={{ background: 'var(--primary)', border: 'none' }}
+                >
+                  <Plus size={16} /> Create event
+                </button>
+              ) : undefined
+            }
+          />
         </div>
       )}
 

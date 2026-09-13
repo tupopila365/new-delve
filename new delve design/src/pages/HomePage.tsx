@@ -16,6 +16,9 @@ import {
   SectionEmpty,
   TravelerAvatar,
   SaveButton,
+  ListingCard,
+  DealCard,
+  JourneyCard,
 } from '../components/shared'
 
 export interface HomePageProps {
@@ -473,96 +476,24 @@ export default function HomePage({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredListings.slice(0, 6).map(listing => (
-              <article
+              <ListingCard
                 key={listing.id}
+                id={listing.id}
+                title={listing.title}
+                subtitle={listing.subtitle}
+                category={listing.category}
+                businessName={listing.businessName}
+                destination={listing.destination}
+                media={listing.coverImage}
+                verified={listing.verified}
+                rating={listing.rating}
+                priceFormatted={listing.priceFormatted}
+                priceBasis={listing.priceBasis}
+                isSaved={savedItems.has(listing.id)}
+                onSave={() => toggleSave(listing.id)}
                 onClick={() => setInquiryListing(listing)}
-                className="overflow-hidden rounded-2xl flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md group"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-              >
-                <div>
-                  <div className="relative overflow-hidden" style={{ height: 180, background: 'var(--surface-subtle)' }}>
-                    <SafeImage src={listing.coverImage} alt={listing.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" kind="listing" />
-                    <span
-                      className="absolute top-3 left-3 text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-md"
-                      style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
-                    >
-                      {listing.category}
-                    </span>
-                    <SaveButton
-                      isSaved={savedItems.has(listing.id)}
-                      onClick={() => toggleSave(listing.id)}
-                      size="sm"
-                      variant="filled"
-                      className="absolute top-3 right-3"
-                      ariaLabel="Save service"
-                    />
-                  </div>
-
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-xs font-medium flex items-center gap-1 m-0 truncate" style={{ color: 'var(--fg-muted)' }}>
-                        <span className="truncate">{listing.businessName}</span>
-                        {listing.verified && <CheckCircle size={12} style={{ color: '#10A760' }} className="flex-shrink-0" />}
-                      </p>
-                      {listing.rating && (
-                        <span className="text-xs font-semibold inline-flex items-center gap-1 tabular-nums" style={{ color: 'var(--fg)' }}>
-                          <Star size={11} className="fill-amber-400 text-amber-400" />
-                          <span>{listing.rating}</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="text-base font-bold m-0 mb-1 line-clamp-1" style={{ color: 'var(--fg)' }}>
-                      {listing.title}
-                    </h3>
-
-                    {listing.subtitle && (
-                      <p className="text-xs m-0 mb-3 line-clamp-2" style={{ color: 'var(--fg-muted)' }}>
-                        {listing.subtitle}
-                      </p>
-                    )}
-
-                    <p className="text-xs m-0 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-                      <MapPin size={11} />
-                      <span>{listing.destination}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="px-4 pb-4 pt-2 flex items-center justify-between border-t" style={{ borderColor: 'var(--border)' }}>
-                  <div>
-                    {listing.priceFormatted ? (
-                      <>
-                        <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--fg)' }}>
-                          {listing.priceFormatted}
-                        </span>
-                        {listing.priceBasis && (
-                          <span className="text-[11px] ml-1" style={{ color: 'var(--fg-muted)' }}>
-                            /{listing.priceBasis}
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>
-                        Inquire for rate
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation()
-                      setInquiryListing(listing)
-                    }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90 inline-flex items-center gap-1 cursor-pointer"
-                    style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
-                  >
-                    <span>Contact provider</span>
-                    <ChevronRight size={13} />
-                  </button>
-                </div>
-              </article>
+                onContact={() => setInquiryListing(listing)}
+              />
             ))}
           </div>
         )}
@@ -593,53 +524,19 @@ export default function HomePage({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {data.deals.slice(0, 3).map(deal => (
-              <div
+              <DealCard
                 key={deal.id}
+                id={deal.id}
+                title={deal.title}
+                businessName={deal.businessName}
+                destination={deal.destination}
+                discountLabel={deal.discountSummary}
+                currentPrice={deal.currentPrice || 'Special rate'}
+                media={deal.image}
+                isSaved={savedItems.has(deal.id)}
+                onSave={() => toggleSave(deal.id)}
                 onClick={() => onOpenDeal ? onOpenDeal(deal.id) : onNavigate('Deals')}
-                className="rounded-2xl overflow-hidden cursor-pointer transition-all hover:-translate-y-1 group"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-              >
-                <div className="relative overflow-hidden" style={{ height: 160 }}>
-                  <SafeImage src={deal.image} alt={deal.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" kind="listing" />
-                  <span
-                    className="absolute top-3 left-3 text-xs font-bold px-2.5 py-1 rounded-lg"
-                    style={{ background: '#E05C1A', color: '#fff' }}
-                  >
-                    {deal.discountSummary}
-                  </span>
-                  <SaveButton
-                    isSaved={savedItems.has(deal.id)}
-                    onClick={() => toggleSave(deal.id)}
-                    size="sm"
-                    variant="filled"
-                    className="absolute top-3 right-3"
-                    ariaLabel="Save deal"
-                  />
-                </div>
-
-                <div className="p-4">
-                  <p className="text-xs font-medium m-0 mb-1 flex items-center justify-between" style={{ color: 'var(--fg-muted)' }}>
-                    <span>{deal.businessName}</span>
-                    <span>{deal.destination}</span>
-                  </p>
-                  <h3 className="text-base font-bold m-0 mb-2 line-clamp-1" style={{ color: 'var(--fg)' }}>
-                    {deal.title}
-                  </h3>
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-                    <div>
-                      {deal.currentPrice && (
-                        <span className="text-sm font-extrabold tabular-nums" style={{ color: 'var(--fg)' }}>
-                          {deal.currentPrice}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: 'var(--primary)' }}>
-                      <span>View terms</span>
-                      <ChevronRight size={13} />
-                    </span>
-                  </div>
-                </div>
-              </div>
+              />
             ))}
           </div>
         </section>
@@ -740,54 +637,20 @@ export default function HomePage({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {data.journeys.slice(0, 2).map(journey => (
-              <div
+              <JourneyCard
                 key={journey.id}
+                id={journey.id}
+                title={journey.title}
+                duration={journey.duration}
+                stops={journey.route ? journey.route.split(' → ') : []}
+                creator={{
+                  name: journey.creatorName,
+                  avatarUrl: journey.creatorAvatar,
+                }}
+                historicalCost={journey.historicalCost}
+                media={journey.coverImage}
                 onClick={() => onOpenJourney ? onOpenJourney(journey.id) : onNavigate('Journeys')}
-                className="overflow-hidden rounded-2xl flex flex-col sm:flex-row cursor-pointer transition-all hover:-translate-y-1 group"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-              >
-                <div className="sm:w-2/5 relative overflow-hidden" style={{ minHeight: 180 }}>
-                  <SafeImage src={journey.coverImage} alt={journey.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" kind="journey" />
-                  <span
-                    className="absolute top-3 left-3 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-md"
-                    style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
-                  >
-                    {journey.duration}
-                  </span>
-                </div>
-
-                <div className="p-4 sm:w-3/5 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <TravelerAvatar
-                        src={journey.creatorAvatar}
-                        alt={journey.creatorName}
-                        fallbackInitials={journey.creatorName}
-                        size="sm"
-                      />
-                      <span className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{journey.creatorName}</span>
-                    </div>
-
-                    <h3 className="text-base font-bold m-0 mb-1 line-clamp-1" style={{ color: 'var(--fg)' }}>
-                      {journey.title}
-                    </h3>
-
-                    <p className="text-xs font-medium flex items-center gap-1 m-0 mb-3" style={{ color: 'var(--primary)' }}>
-                      <Navigation size={11} />
-                      <span className="truncate">{journey.route}</span>
-                    </p>
-                  </div>
-
-                  <div className="pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-                    <p className="text-[11px] font-semibold m-0" style={{ color: 'var(--fg-muted)' }}>
-                      Historical trip cost (what this traveler spent):
-                    </p>
-                    <p className="text-sm font-bold m-0" style={{ color: 'var(--fg)' }}>
-                      {journey.historicalCost}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              />
             ))}
           </div>
         </section>
@@ -802,36 +665,18 @@ export default function HomePage({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {budgetListings.map(item => (
-            <div
+            <ListingCard
               key={`budget-${item.id}`}
+              id={item.id}
+              title={item.title}
+              businessName={item.businessName}
+              category="Great Value"
+              destination={item.destination}
+              media={item.coverImage || ''}
+              priceFormatted={item.priceFormatted || 'Free access'}
               onClick={() => onOpenListing ? onOpenListing(item.id) : onOpenServices ? onOpenServices() : onNavigate('Services')}
-              className="p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-1"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md" style={{ background: 'rgba(16,167,96,0.12)', color: '#10A760' }}>
-                    Great Value
-                  </span>
-                  <span className="text-xs" style={{ color: 'var(--fg-muted)' }}>{item.destination}</span>
-                </div>
-                <h3 className="text-sm font-bold m-0 mb-1 line-clamp-1" style={{ color: 'var(--fg)' }}>
-                  {item.title}
-                </h3>
-                <p className="text-xs m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
-                  {item.businessName}
-                </p>
-              </div>
-
-              <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
-                <span className="text-sm font-bold" style={{ color: 'var(--fg)' }}>
-                  {item.priceFormatted || 'Free access'}
-                </span>
-                <span className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>
-                  Details →
-                </span>
-              </div>
-            </div>
+              onContact={() => onOpenListing ? onOpenListing(item.id) : onOpenServices ? onOpenServices() : onNavigate('Services')}
+            />
           ))}
         </div>
       </section>

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Building2, CheckCircle, MapPin, Search, Tag, X } from 'lucide-react'
 import type { ListingPublicDto } from '@delve/contracts'
 import { fetchPublicListings } from '../api/listingClient'
-import { SkeletonCard, SectionEmpty, SectionError } from '../components/SectionStates'
+import { SkeletonCard, SectionError } from '../components/SectionStates'
+import { SectionHeader, ScrollRail, SectionEmpty, ListingCard } from '../components/shared'
 import { formatMoney } from '../lib/formatMoney'
 import SafeImage from '../components/mobile/SafeImage'
 import ServiceDetailPage from './ServiceDetailPage'
@@ -33,71 +34,7 @@ function locationOf(listing: ListingPublicDto) {
   return [listing.business.city, listing.business.countryCode].filter(Boolean).join(', ') || null
 }
 
-function ListingCard({
-  listing,
-  onOpen,
-}: {
-  listing: ListingPublicDto
-  onOpen: (id: string) => void
-}) {
-  const img = coverUrl(listing)
-  const location = locationOf(listing)
 
-  return (
-    <article
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpen(listing.id)}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onOpen(listing.id)
-        }
-      }}
-      className="overflow-hidden rounded-2xl cursor-pointer transition-opacity active:opacity-90"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-    >
-      <div className="relative overflow-hidden" style={{ height: 180, background: 'var(--surface-subtle)' }}>
-        {img ? (
-          <SafeImage src={img} alt={listing.title} className="h-full w-full object-cover" kind="listing" />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center text-xs" style={{ color: 'var(--fg-muted)' }}>
-            No photo
-          </div>
-        )}
-        {listing.business.category && (
-          <span
-            className="absolute top-3 left-3 text-xs font-semibold px-2.5 py-1 rounded-full"
-            style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}
-          >
-            {listing.business.category}
-          </span>
-        )}
-      </div>
-      <div className="px-3.5 py-3">
-        <h3 className="text-sm font-semibold m-0 truncate" style={{ color: 'var(--fg)' }}>
-          {listing.title}
-        </h3>
-        <p className="text-xs m-0 mt-1.5 flex items-center gap-1.5 truncate" style={{ color: 'var(--fg-muted)' }}>
-          <Building2 size={12} className="flex-shrink-0" />
-          <span className="truncate">{listing.business.name}</span>
-          <CheckCircle size={11} className="flex-shrink-0" style={{ color: '#10A760' }} />
-        </p>
-        {location && (
-          <p className="text-xs m-0 mt-1 flex items-center gap-1" style={{ color: 'var(--fg-muted)' }}>
-            <MapPin size={11} />
-            {location}
-          </p>
-        )}
-        {listing.pricing && (
-          <p className="text-sm font-semibold m-0 mt-1.5" style={{ color: 'var(--fg)' }}>
-            {formatMoney(listing.pricing.currency, listing.pricing.amount)}
-          </p>
-        )}
-      </div>
-    </article>
-  )
-}
 
 export function ServicesAside({
   activeDestination,
@@ -225,12 +162,10 @@ export default function ServicesPage({
   return (
     <div className="pb-8">
       <div className="px-4 sm:px-0 pt-4 mb-4">
-        <h1 className="font-display text-2xl font-extrabold m-0 mb-1" style={{ color: 'var(--fg)' }}>
-          Services
-        </h1>
-        <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-          Published experiences from verified businesses.
-        </p>
+        <SectionHeader
+          title="Services"
+          subtitle="Published experiences from verified Namibian businesses."
+        />
       </div>
 
       <div className="px-4 sm:px-0 mb-3">
@@ -254,45 +189,47 @@ export default function ServicesPage({
         </div>
       </div>
 
-      <div className="px-4 sm:px-0 mb-3 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-        {(categories.length > 1 ? categories : ['All']).map(cat => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => setActiveCategory(cat)}
-            className="flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1"
-            style={{
-              background: activeCategory === cat ? 'var(--primary)' : 'var(--surface)',
-              color: activeCategory === cat ? '#fff' : 'var(--fg)',
-              border: `1px solid ${activeCategory === cat ? 'var(--primary)' : 'var(--border)'}`,
-              cursor: 'pointer',
-            }}
-          >
-            <Tag size={11} />
-            {cat}
-          </button>
-        ))}
+      <div className="px-4 sm:px-0 mb-3">
+        <ScrollRail gap="sm" fadeEdges ariaLabel="Service categories">
+          {(categories.length > 1 ? categories : ['All']).map(cat => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setActiveCategory(cat)}
+              className="flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+              style={{
+                background: activeCategory === cat ? 'var(--primary)' : 'var(--surface)',
+                color: activeCategory === cat ? '#fff' : 'var(--fg)',
+                border: `1px solid ${activeCategory === cat ? 'var(--primary)' : 'var(--border)'}`,
+              }}
+            >
+              <Tag size={11} />
+              {cat}
+            </button>
+          ))}
+        </ScrollRail>
       </div>
 
       {cities.length > 0 && (
-        <div className="px-4 sm:px-0 mb-4 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          {cities.map(city => (
-            <button
-              key={city}
-              type="button"
-              onClick={() => setActiveDestination(activeDestination === city ? null : city)}
-              className="flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1"
-              style={{
-                background: activeDestination === city ? 'rgba(16,167,96,0.12)' : 'var(--surface)',
-                color: activeDestination === city ? '#0F8A52' : 'var(--fg-muted)',
-                border: `1px solid ${activeDestination === city ? 'rgba(16,167,96,0.35)' : 'var(--border)'}`,
-                cursor: 'pointer',
-              }}
-            >
-              <MapPin size={11} />
-              {city}
-            </button>
-          ))}
+        <div className="px-4 sm:px-0 mb-4">
+          <ScrollRail gap="sm" fadeEdges ariaLabel="Cities filter">
+            {cities.map(city => (
+              <button
+                key={city}
+                type="button"
+                onClick={() => setActiveDestination(activeDestination === city ? null : city)}
+                className="flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                style={{
+                  background: activeDestination === city ? 'rgba(16,167,96,0.12)' : 'var(--surface)',
+                  color: activeDestination === city ? '#0F8A52' : 'var(--fg-muted)',
+                  border: `1px solid ${activeDestination === city ? 'rgba(16,167,96,0.35)' : 'var(--border)'}`,
+                }}
+              >
+                <MapPin size={11} />
+                {city}
+              </button>
+            ))}
+          </ScrollRail>
         </div>
       )}
 
@@ -325,15 +262,31 @@ export default function ServicesPage({
           <SectionError onRetry={() => setReloadKey(k => k + 1)} />
         ) : filtered.length === 0 ? (
           <SectionEmpty
-            icon={<Search size={20} />}
+            icon={<Search size={24} />}
             title="No published listings"
-            body="Try another city or category, or check back when providers publish experiences."
+            description="Try another city or category, or check back when providers publish experiences."
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {filtered.map(listing => (
-              <ListingCard key={listing.id} listing={listing} onOpen={setSelectedId} />
-            ))}
+            {filtered.map(listing => {
+              const img = coverUrl(listing)
+              const location = locationOf(listing)
+              return (
+                <ListingCard
+                  key={listing.id}
+                  id={listing.id}
+                  title={listing.title}
+                  businessName={listing.business.name}
+                  category={listing.business.category || 'Service'}
+                  destination={location || 'Namibia'}
+                  media={img || ''}
+                  verified={true}
+                  priceFormatted={listing.pricing ? formatMoney(listing.pricing.currency, listing.pricing.amount) : undefined}
+                  onClick={() => setSelectedId(listing.id)}
+                  onContact={() => setSelectedId(listing.id)}
+                />
+              )
+            })}
           </div>
         )}
       </div>

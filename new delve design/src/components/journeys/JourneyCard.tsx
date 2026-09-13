@@ -10,6 +10,7 @@ import { formatUsername } from '../../lib/formatUsername'
 import { timeAgoShort } from '../../lib/timeAgoShort'
 import JourneyCoverMedia from './JourneyCoverMedia'
 import { deriveJourneyLifecycle, formatStopRoute, lifecycleLabel } from './journeyLifecycle'
+import { TravelerAvatar, SaveButton } from '../shared'
 
 interface JourneyCardProps {
   journey: JourneySummary
@@ -108,13 +109,12 @@ export default function JourneyCard({
             onOpenProfile ? 'cursor-pointer' : 'cursor-default'
           }`}
         >
-          <div className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-[var(--primary)]/12">
-            {journey.author.avatarUrl ? (
-              <img src={journey.author.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <User size={18} className="text-[var(--fg-muted)]" />
-            )}
-          </div>
+          <TravelerAvatar
+            src={journey.author.avatarUrl}
+            alt={journey.author.displayName || journey.author.username}
+            fallbackInitials={journey.author.displayName || journey.author.username}
+            size="md"
+          />
           <div className="min-w-0">
             <p className="text-sm font-semibold m-0 truncate text-[var(--fg)]">
               {journey.author.displayName || formatUsername(journey.author.username)}
@@ -198,17 +198,14 @@ export default function JourneyCard({
           >
             <MessageCircle size={22} />
           </button>
-          <button
-            type="button"
-            disabled={busy}
+          <SaveButton
+            isSaved={Boolean(journey.savedByMe)}
             onClick={toggleSave}
-            className={`ml-auto bg-transparent border-0 p-0 cursor-pointer transition-colors ${
-              journey.savedByMe ? 'text-[var(--primary)]' : 'text-[var(--fg)]'
-            }`}
-            aria-label={journey.savedByMe ? 'Unsave journey' : 'Save journey'}
-          >
-            <Bookmark size={22} fill={journey.savedByMe ? 'currentColor' : 'none'} />
-          </button>
+            variant="ghost"
+            size="md"
+            className="ml-auto"
+            ariaLabel={journey.savedByMe ? 'Unsave journey' : 'Save journey'}
+          />
         </div>
 
         <p className="text-sm font-semibold m-0 mb-1 text-[var(--fg)]">

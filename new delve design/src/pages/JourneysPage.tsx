@@ -38,6 +38,7 @@ import JourneyCategoryStrip, {
   CATEGORY_MATCHERS,
 } from '../components/journeys/JourneyCategoryStrip'
 import MyJourneyCard from '../components/journeys/MyJourneyCard'
+import { SectionEmpty } from '../components/shared'
 import {
   filterMyJourneys,
   JOURNEY_DISCOVER_FILTERS,
@@ -901,19 +902,23 @@ export default function JourneysPage({
       )}
 
       {!loading && !error && (tab === 'discover' || signedIn) && list.length === 0 && (
-        <div className="px-6 py-14 text-center">
-          <Navigation size={32} className="text-neutral-500 mx-auto mb-3" />
-          <p className="text-sm font-semibold m-0 mb-1 text-white">{emptyCopy.title}</p>
-          <p className="text-xs text-neutral-400 m-0 mb-4">{emptyCopy.body}</p>
-          {tab === 'mine' && signedIn && (
-            <button
-              type="button"
-              onClick={() => setComposeOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30"
-            >
-              <Plus size={16} /> Create your first Journey
-            </button>
-          )}
+        <div className="px-6 py-12">
+          <SectionEmpty
+            icon={<Navigation size={32} />}
+            title={emptyCopy.title}
+            description={emptyCopy.body}
+            action={
+              tab === 'mine' && signedIn ? (
+                <button
+                  type="button"
+                  onClick={() => setComposeOpen(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 cursor-pointer"
+                >
+                  <Plus size={16} /> Create your first Journey
+                </button>
+              ) : undefined
+            }
+          />
         </div>
       )}
 
