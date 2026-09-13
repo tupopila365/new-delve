@@ -12,7 +12,7 @@ import {
 } from '@delve/contracts'
 import UsernameSettingsPanel from './UsernameSettingsPanel'
 import SessionCard from '../components/auth/SessionCard'
-import ConfirmationDialog from '../components/auth/ConfirmationDialog'
+import { ConfirmDialog, ScrollRail } from '../components/shared'
 import {
   AuthApiError,
   changePassword,
@@ -63,6 +63,7 @@ export default function AccountSettingsPage({
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [message, setMessage] = useState<string | null>(null)
   const [confirmLogoutAll, setConfirmLogoutAll] = useState(false)
+  const [confirmDeactivateOpen, setConfirmDeactivateOpen] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -154,27 +155,28 @@ export default function AccountSettingsPage({
         </p>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-        {SECTIONS.map(item => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => {
-              setSection(item.id)
-              setMessage(null)
-              setError(null)
-            }}
-            className="min-h-[44px] px-3 rounded-xl text-sm font-semibold whitespace-nowrap"
-            style={{
-              background: section === item.id ? 'var(--primary)' : 'var(--surface)',
-              color: section === item.id ? '#fff' : 'var(--fg)',
-              border: '1px solid var(--border)',
-              cursor: 'pointer',
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div className="mb-4">
+        <ScrollRail gap="sm" fadeEdges>
+          {SECTIONS.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                setSection(item.id)
+                setMessage(null)
+                setError(null)
+              }}
+              className="min-h-[44px] px-3.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-150 active:scale-95 cursor-pointer"
+              style={{
+                background: section === item.id ? 'var(--primary)' : 'var(--surface)',
+                color: section === item.id ? '#fff' : 'var(--fg)',
+                border: `1px solid ${section === item.id ? 'var(--primary)' : 'var(--border)'}`,
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </ScrollRail>
       </div>
 
       {message && (
@@ -503,27 +505,27 @@ export default function AccountSettingsPage({
               </p>
             )}
           </div>
-          <ConfirmationDialog
-            open={confirmLogoutAll}
+          <ConfirmDialog
+            isOpen={confirmLogoutAll}
             title="Sign out everywhere?"
             description="This signs you out on every device, including this one. Revocation cannot be undone — you’ll need your password to sign in again."
             confirmLabel="Sign out everywhere"
             cancelLabel="Keep sessions"
-            busy={busy}
+            variant="warning"
+            isLoading={busy}
             onCancel={() => setConfirmLogoutAll(false)}
-            onConfirm={() => {
-              void (async () => {
-                setBusy(true)
-                setError(null)
-                try {
-                  await logoutAllDevices()
-                  setConfirmLogoutAll(false)
-                  onSignOut()
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : 'Could not sign out everywhere')
-                  setBusy(false)
-                }
-              })()
+            onConfirm={async () => {
+              setBusy(true)
+              setError(null)
+              try {
+                await logoutAllDevices()
+                setConfirmLogoutAll(false)
+                onSignOut()
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Could not sign out everywhere')
+              } finally {
+                setBusy(false)
+              }
             }}
           />
         </section>
@@ -542,26 +544,42 @@ export default function AccountSettingsPage({
           </label>
           <button
             type="button"
-            disabled={busy || !deactivateConfirm}
-            className="min-h-[44px] rounded-xl text-sm font-semibold"
-            style={{ background: 'rgba(224,92,26,0.9)', color: '#fff', border: 'none', cursor: deactivateConfirm ? 'pointer' : 'not-allowed' }}
-            onClick={() => {
-              void (async () => {
-                setBusy(true)
-                setError(null)
-                try {
-                  await deactivateAccount({ currentPassword: deactivatePassword, confirm: true })
-                  onSignOut()
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : 'Could not deactivate account')
-                } finally {
-                  setBusy(false)
-                }
-              })()
+            disabled={busy || !deactivateConfirm || !deactivatePassword.trim()}
+            className="min-h-[44px] rounded-xl text-sm font-semibold transition-all"
+            style={{
+              background: 'rgba(224,92,26,0.9)',
+              color: '#fff',
+              border: 'none',
+              cursor: deactivateConfirm && deactivatePassword.trim() ? 'pointer' : 'not-allowed',
             }}
+            onClick={() => setConfirmDeactivateOpen(true)}
           >
             Deactivate account
           </button>
+
+          <ConfirmDialog
+            isOpen={confirmDeactivateOpen}
+            title="Deactivate Account?"
+            description="Deactivation stops access immediately, signs you out everywhere, and keeps records needed for security and legal obligations. This is not a permanent delete."
+            confirmLabel="Deactivate account"
+            cancelLabel="Keep account"
+            variant="danger"
+            isLoading={busy}
+            onCancel={() => setConfirmDeactivateOpen(false)}
+            onConfirm={async () => {
+              setBusy(true)
+              setError(null)
+              try {
+                await deactivateAccount({ currentPassword: deactivatePassword, confirm: true })
+                setConfirmDeactivateOpen(false)
+                onSignOut()
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Could not deactivate account')
+              } finally {
+                setBusy(false)
+              }
+            }}
+          />
         </section>
       )}
     </div>

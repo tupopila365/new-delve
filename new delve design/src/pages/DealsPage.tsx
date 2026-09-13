@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search, Tag, X } from 'lucide-react'
-import DealFeedCard from '../components/deals/DealFeedCard'
 import DealCatalogDetail from '../components/deals/DealCatalogDetail'
 import { SkeletonCard } from '../components/SectionStates'
-import { SectionHeader, ScrollRail, SectionEmpty } from '../components/shared'
+import { SectionHeader, ScrollRail, SectionEmpty, DealCard } from '../components/shared'
 import { formatMoney } from '../lib/formatMoney'
 import MyClaimsPage from './MyClaimsPage'
 import { fetchPublicDeals, fetchPublicDeal } from '../api/dealClient'
@@ -12,6 +11,7 @@ import {
   DEAL_CITIES,
   DEAL_SERVICE_CATEGORIES,
   dealDtoToCatalogDeal,
+  coverOf,
   type CatalogDeal,
   type DealAudience,
 } from '../data/marketingDealsCatalog'
@@ -286,35 +286,61 @@ export default function DealsPage({
               />
             </div>
           ) : grouped ? (
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-6">
               {grouped.map(group => (
                 <section key={group.cat}>
-                  <p className="px-4 sm:px-0 text-xs font-bold uppercase tracking-wider m-0 mt-4 mb-1" style={{ color: 'var(--fg-muted)' }}>
+                  <p className="px-4 sm:px-0 text-xs font-bold uppercase tracking-wider m-0 mb-3" style={{ color: 'var(--fg-muted)' }}>
                     {group.cat}
                   </p>
-                  {group.rows.map(deal => (
-                    <DealFeedCard
-                      key={deal.id}
-                      deal={deal}
-                      saved={savedIds.has(deal.id)}
-                      onOpen={setSelectedDealId}
-                      onToggleSave={toggleSave}
-                    />
-                  ))}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-4 sm:px-0">
+                    {group.rows.map(deal => {
+                      const hours = hoursLeft(deal.endDate)
+                      const timeLeft = hours > 0 && hours <= 72 ? `${Math.round(hours)}h left` : undefined
+                      return (
+                        <DealCard
+                          key={deal.id}
+                          id={deal.id}
+                          title={deal.title}
+                          businessName={deal.businessName}
+                          destination={`${deal.city}, ${deal.country}`}
+                          discountLabel={`${deal.discountPercentage}% OFF`}
+                          currentPrice={formatMoney(deal.currency, deal.dealAmount)}
+                          originalPrice={formatMoney(deal.currency, deal.originalAmount)}
+                          media={coverOf(deal).url}
+                          timeLeft={timeLeft}
+                          isSaved={savedIds.has(deal.id)}
+                          onSave={() => toggleSave(deal.id)}
+                          onClick={() => setSelectedDealId(deal.id)}
+                        />
+                      )
+                    })}
+                  </div>
                 </section>
               ))}
             </div>
           ) : (
-            <div className="flex flex-col">
-              {filtered.map(deal => (
-                <DealFeedCard
-                  key={deal.id}
-                  deal={deal}
-                  saved={savedIds.has(deal.id)}
-                  onOpen={setSelectedDealId}
-                  onToggleSave={toggleSave}
-                />
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-4 sm:px-0">
+              {filtered.map(deal => {
+                const hours = hoursLeft(deal.endDate)
+                const timeLeft = hours > 0 && hours <= 72 ? `${Math.round(hours)}h left` : undefined
+                return (
+                  <DealCard
+                    key={deal.id}
+                    id={deal.id}
+                    title={deal.title}
+                    businessName={deal.businessName}
+                    destination={`${deal.city}, ${deal.country}`}
+                    discountLabel={`${deal.discountPercentage}% OFF`}
+                    currentPrice={formatMoney(deal.currency, deal.dealAmount)}
+                    originalPrice={formatMoney(deal.currency, deal.originalAmount)}
+                    media={coverOf(deal).url}
+                    timeLeft={timeLeft}
+                    isSaved={savedIds.has(deal.id)}
+                    onSave={() => toggleSave(deal.id)}
+                    onClick={() => setSelectedDealId(deal.id)}
+                  />
+                )
+              })}
             </div>
           )}
         </>

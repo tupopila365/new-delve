@@ -6,6 +6,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../api/socialClient'
+import { SectionHeader, SectionEmpty, ConfirmDialog } from '../components/shared'
 
 function iconFor(type: string) {
   if (type.includes('MESSAGE')) return <MessageCircle size={18} />
@@ -45,6 +46,8 @@ export default function NotificationsPage({
   const [notifs, setNotifs] = useState<NotificationDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [confirmMarkAllOpen, setConfirmMarkAllOpen] = useState(false)
+  const [busyMarking, setBusyMarking] = useState(false)
 
   useEffect(() => {
     if (!authReady) {
@@ -81,12 +84,16 @@ export default function NotificationsPage({
 
   const unreadCount = notifs.filter(n => !n.readAt).length
 
-  async function markAllRead() {
+  async function handleConfirmMarkAll() {
+    setBusyMarking(true)
     try {
       await markAllNotificationsRead()
       setNotifs(prev => prev.map(n => ({ ...n, readAt: n.readAt || new Date().toISOString() })))
+      setConfirmMarkAllOpen(false)
     } catch {
       /* ignore */
+    } finally {
+      setBusyMarking(false)
     }
   }
 
@@ -122,21 +129,14 @@ export default function NotificationsPage({
 
   return (
     <div className="pb-4">
-      <div
-        className="flex items-center justify-between px-4 sm:px-0 py-2.5"
-        style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}
-      >
-        <span className="text-sm" style={{ color: 'var(--fg-muted)' }}>
-          {unreadCount} unread
-        </span>
-        <button
-          type="button"
-          onClick={() => void markAllRead()}
-          className="text-sm font-semibold active:opacity-70"
-          style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}
-        >
-          Mark all read
-        </button>
+      <div className="px-4 sm:px-0 pt-4 pb-2">
+        <SectionHeader
+          title="Notifications"
+          subtitle={unreadCount > 0 ? `${unreadCount} unread update${unreadCount === 1 ? '' : 's'}` : 'All caught up'}
+          actionLabel={unreadCount > 0 ? 'Mark all read' : undefined}
+          onActionClick={unreadCount > 0 ? () => setConfirmMarkAllOpen(true) : undefined}
+          icon={<Bell size={20} />}
+        />
       </div>
 
       {loading && (
@@ -146,12 +146,12 @@ export default function NotificationsPage({
         <p className="px-4 py-8 text-sm" style={{ color: 'var(--auth-danger)' }} role="alert">{error}</p>
       )}
       {!loading && !error && notifs.length === 0 && (
-        <div className="px-6 py-14 text-center">
-          <Bell size={28} style={{ color: 'var(--fg-muted)', margin: '0 auto 10px' }} />
-          <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>You are all caught up</p>
-          <p className="text-sm m-0" style={{ color: 'var(--fg-muted)' }}>
-            Follows, likes, comments, community updates, journeys, and event updates will show up here.
-          </p>
+        <div className="px-4 sm:px-0 py-8">
+          <SectionEmpty
+            icon={<Bell size={28} />}
+            title="You are all caught up"
+            description="Follows, likes, comments, community updates, journeys, and event updates will show up here."
+          />
         </div>
       )}
 
@@ -163,7 +163,7 @@ export default function NotificationsPage({
               key={n.id}
               type="button"
               onClick={() => openNotification(n)}
-              className="w-full flex gap-3 px-4 py-3.5 text-left"
+              className="w-full flex gap-3 px-4 py-3.5 text-left transition-colors hover:opacity-90 active:scale-[0.99]"
               style={{
                 background: unread ? 'rgba(140,82,255,0.06)' : 'var(--surface)',
                 borderBottom: '1px solid var(--border)',
@@ -192,6 +192,18 @@ export default function NotificationsPage({
           )
         })}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmMarkAllOpen}
+        title="Mark All as Read?"
+        description="This will mark all unread notifications as read across your account."
+        confirmLabel="Mark all read"
+        cancelLabel="Keep unread"
+        variant="info"
+        isLoading={busyMarking}
+        onCancel={() => setConfirmMarkAllOpen(false)}
+        onConfirm={handleConfirmMarkAll}
+      />
     </div>
   )
 }

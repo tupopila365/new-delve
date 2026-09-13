@@ -32,3 +32,10 @@ export type { EventCardProps, AttendanceStatus } from './EventCard'
 
 export { default as JourneyCard } from './JourneyCard'
 export type { JourneyCardProps, JourneyCreator } from './JourneyCard'
+
+// Phase 4: Responsive Overlays
+export { default as ResponsiveSheet } from './ResponsiveSheet'
+export type { ResponsiveSheetProps } from './ResponsiveSheet'
+
+export { default as ConfirmDialog } from './ConfirmDialog'
+export type { ConfirmDialogProps, ConfirmVariant } from './ConfirmDialog'

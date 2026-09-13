@@ -22,6 +22,7 @@ import { DelversListSkeleton } from '../components/skeletons'
 import ContentReportSheet from '../components/safety/ContentReportSheet'
 import { formatUsername } from '../lib/formatUsername'
 import { AuthApiError } from '../api/authClient'
+import { TravelerAvatar, SaveButton, SectionEmpty } from '../components/shared'
 
 function formatN(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
@@ -301,21 +302,24 @@ export default function DelversFeedPage({
           </div>
         )}
         {!loading && !error && authReady && feed.length === 0 && (
-          <div className="px-4 py-12 text-center">
-            <p className="text-sm font-semibold mb-1" style={{ color: 'var(--fg)' }}>
-              No Delvers yet
-            </p>
-            <p className="text-sm mb-4" style={{ color: 'var(--fg-muted)' }}>
-              Be the first to share a public post with travelers on Delve.
-            </p>
-            <button
-              type="button"
-              onClick={onCreate}
-              className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
-              style={{ background: 'var(--primary)', border: 'none', cursor: 'pointer' }}
-            >
-              Create a post
-            </button>
+          <div className="px-4 py-8">
+            <SectionEmpty
+              icon={<MessageCircle size={28} />}
+              title="No Delvers yet"
+              description="Be the first to share a public post with travelers on Delve."
+              action={
+                onCreate ? (
+                  <button
+                    type="button"
+                    onClick={onCreate}
+                    className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white min-h-[44px] cursor-pointer"
+                    style={{ background: 'var(--primary)', border: 'none' }}
+                  >
+                    Create a post
+                  </button>
+                ) : undefined
+              }
+            />
           </div>
         )}
 
@@ -329,16 +333,12 @@ export default function DelversFeedPage({
                   className="flex items-center gap-2.5"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 >
-                  <div
-                    className="h-10 w-10 rounded-full overflow-hidden flex items-center justify-center"
-                    style={{ background: 'rgba(140,82,255,0.12)' }}
-                  >
-                    {post.author.avatarUrl ? (
-                      <img src={post.author.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <User size={18} style={{ color: 'var(--fg-muted)' }} />
-                    )}
-                  </div>
+                  <TravelerAvatar
+                    src={post.author.avatarUrl}
+                    alt={post.author.displayName || post.author.username}
+                    fallbackInitials={post.author.displayName || post.author.username}
+                    size="sm"
+                  />
                   <div className="text-left">
                     <p className="text-sm font-semibold m-0" style={{ color: 'var(--fg)' }}>
                       {post.author.displayName || formatUsername(post.author.username)}
@@ -455,15 +455,14 @@ export default function DelversFeedPage({
                   >
                     <Flag size={20} />
                   </button>
-                  <button
-                    type="button"
+                  <SaveButton
+                    isSaved={Boolean(post.savedByMe)}
                     onClick={() => void toggleSave(post)}
+                    size="md"
+                    variant="ghost"
+                    ariaLabel={post.savedByMe ? 'Remove from saved' : 'Save post'}
                     className="ml-auto"
-                    style={{ background: 'none', border: 'none', color: post.savedByMe ? 'var(--primary)' : 'var(--fg)', cursor: 'pointer', padding: 0 }}
-                    aria-label="Save"
-                  >
-                    <Bookmark size={22} fill={post.savedByMe ? 'currentColor' : 'none'} />
-                  </button>
+                  />
                 </div>
                 <p className="text-sm font-semibold m-0 mb-1" style={{ color: 'var(--fg)' }}>
                   {formatN(post.likeCount)} likes · {formatN(post.commentCount)} comments

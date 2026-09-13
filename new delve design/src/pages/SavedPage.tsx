@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Bookmark, Calendar, Image as ImageIcon, MapPin, MessageCircle } from 'lucide-react'
 import type { SaveDto } from '@delve/contracts'
 import { fetchSaves, unsaveItem } from '../api/socialClient'
-import { SectionHeader, ScrollRail, SectionEmpty, SaveButton } from '../components/shared'
+import { SectionHeader, ScrollRail, SectionEmpty, SaveButton, ConfirmDialog } from '../components/shared'
 
 interface SavedPageProps {
   onOpenPostAuthor?: (username: string) => void
@@ -26,6 +26,8 @@ export default function SavedPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'ALL' | 'POST' | 'EVENT' | 'JOURNEY' | 'COMMUNITY_THREAD' | 'DEAL'>('ALL')
+  const [confirmItem, setConfirmItem] = useState<SaveDto | null>(null)
+  const [isRemoving, setIsRemoving] = useState(false)
 
   useEffect(() => {
     if (!authReady) {
@@ -62,12 +64,17 @@ export default function SavedPage({
 
   const visible = items.filter(i => (filter === 'ALL' ? true : i.targetType === filter))
 
-  async function remove(item: SaveDto) {
+  async function handleConfirmRemove() {
+    if (!confirmItem) return
+    setIsRemoving(true)
     try {
-      await unsaveItem({ targetType: item.targetType, targetId: item.targetId })
-      setItems(list => list.filter(x => x.id !== item.id))
+      await unsaveItem({ targetType: confirmItem.targetType, targetId: confirmItem.targetId })
+      setItems(list => list.filter(x => x.id !== confirmItem.id))
+      setConfirmItem(null)
     } catch {
       /* ignore */
+    } finally {
+      setIsRemoving(false)
     }
   }
 
@@ -210,7 +217,7 @@ export default function SavedPage({
               </div>
               <SaveButton
                 isSaved={true}
-                onClick={() => void remove(item)}
+                onClick={() => setConfirmItem(item)}
                 size="sm"
                 variant="ghost"
                 ariaLabel="Remove from saved"
@@ -219,6 +226,22 @@ export default function SavedPage({
           )
         })}
       </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(confirmItem)}
+        title="Remove Saved Item?"
+        description={
+          confirmItem
+            ? `Are you sure you want to remove "${confirmItem.preview?.title || confirmItem.targetType}" from your saved collection?`
+            : ''
+        }
+        confirmLabel="Remove"
+        cancelLabel="Keep"
+        variant="danger"
+        isLoading={isRemoving}
+        onCancel={() => setConfirmItem(null)}
+        onConfirm={handleConfirmRemove}
+      />
     </div>
   )
 }

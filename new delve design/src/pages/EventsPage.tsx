@@ -5,12 +5,11 @@ import {
 import type { EventDto } from '@delve/contracts'
 import { fetchEvents, searchEvents } from '../api/socialClient'
 import { fetchOnboarding } from '../api/authClient'
-import EventCard from '../components/events/EventCard'
 import FeaturedEvent from '../components/events/FeaturedEvent'
 import EventsPageSkeleton from '../components/events/EventsPageSkeleton'
 import { EVENT_CATEGORIES, QUICK_FILTERS, type QuickFilterId } from '../components/events/eventCategories'
 import { applyDiscoverFilters, pickFeaturedEvent } from '../components/events/eventFilters'
-import { SectionHeader, ScrollRail, SectionEmpty } from '../components/shared'
+import { SectionHeader, ScrollRail, SectionEmpty, EventCard } from '../components/shared'
 
 type Tab = 'discover' | 'hosting' | 'attending'
 
@@ -350,18 +349,25 @@ export default function EventsPage({
               onEventUpdated={patchEvent}
             />
           )}
-          {listEvents.map(ev => (
-            <EventCard
-              key={ev.id}
-              event={ev}
-              signedIn={signedIn}
-              onSignIn={onSignIn}
-              onOpen={onOpenEvent}
-              onOpenProfile={onOpenProfile}
-              onEventUpdated={patchEvent}
-              compact={tab !== 'discover'}
-            />
-          ))}
+          {listEvents.map(ev => {
+            const location = [ev.locationName, ev.city, ev.country].filter(Boolean).join(', ') || ev.city || 'Namibia'
+            return (
+              <EventCard
+                key={ev.id}
+                id={ev.id}
+                title={ev.title}
+                location={location}
+                startAt={ev.startAt}
+                endAt={ev.endAt ?? undefined}
+                media={ev.coverUrl || ''}
+                attendingCount={ev.goingCount ?? 0}
+                interestedCount={ev.interestedCount ?? 0}
+                myAttendance={ev.myAttendance as any}
+                category={ev.category ?? undefined}
+                onClick={() => onOpenEvent(ev.id)}
+              />
+            )
+          })}
         </div>
       )}
     </div>
