@@ -19,6 +19,7 @@ import {
   ListingCard,
   DealCard,
   JourneyCard,
+  FilterChipRail,
 } from '../components/shared'
 
 export interface HomePageProps {
@@ -314,50 +315,33 @@ export default function HomePage({
             <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--fg-muted)' }}>
               Choose Destination
             </p>
-            <ScrollRail gap="sm" fadeEdges ariaLabel="Destinations rail">
-              {DESTINATIONS.map(dest => {
-                const isSelected = (!selectedDestination && dest.id === 'all') || selectedDestination === dest.id
-                return (
-                  <button
-                    key={dest.id}
-                    type="button"
-                    onClick={() => setSelectedDestination(dest.id === 'all' ? null : dest.id)}
-                    className="flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-all cursor-pointer"
-                    style={{
-                      background: isSelected ? 'var(--primary)' : 'var(--surface)',
-                      color: isSelected ? '#ffffff' : 'var(--fg)',
-                      border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
-                      boxShadow: isSelected ? '0 1px 4px rgba(140,82,255,0.2)' : 'none',
-                    }}
-                  >
-                    <MapPin size={11} className={isSelected ? 'text-white' : 'text-[var(--primary)]'} />
-                    <span>{dest.label}</span>
-                  </button>
-                )
-              })}
-            </ScrollRail>
+            <FilterChipRail
+              items={DESTINATIONS.map(dest => ({
+                id: dest.id,
+                label: dest.label,
+                icon: <MapPin size={12} />,
+              }))}
+              selected={selectedDestination || 'all'}
+              onSelect={id => setSelectedDestination(id === 'all' ? null : id)}
+              onClearAll={selectedDestination ? () => setSelectedDestination(null) : undefined}
+              size="sm"
+              ariaLabel="Destinations rail"
+            />
           </div>
 
           {/* Mood Shortcuts */}
-          <ScrollRail gap="sm" fadeEdges ariaLabel="Mood shortcuts rail">
-            <span className="text-[11px] font-medium flex-shrink-0 self-center" style={{ color: 'var(--fg-muted)' }}>Quick ideas:</span>
-            {MOOD_SHORTCUTS.map(chip => (
-              <button
-                key={chip.label}
-                type="button"
-                onClick={() => setServiceFilter(chip.category)}
-                className="flex-shrink-0 px-2 py-1 rounded-md text-[11px] font-medium inline-flex items-center gap-1 transition-all cursor-pointer"
-                style={{
-                  background: serviceFilter === chip.category ? 'rgba(140,82,255,0.12)' : 'var(--surface-subtle)',
-                  color: serviceFilter === chip.category ? 'var(--primary)' : 'var(--fg-muted)',
-                  border: `1px solid ${serviceFilter === chip.category ? 'rgba(140,82,255,0.3)' : 'var(--border)'}`,
-                }}
-              >
-                {chip.icon}
-                <span>{chip.label}</span>
-              </button>
-            ))}
-          </ScrollRail>
+          <FilterChipRail
+            items={MOOD_SHORTCUTS.map(chip => ({
+              id: chip.category,
+              label: chip.label,
+              icon: chip.icon,
+            }))}
+            selected={serviceFilter}
+            onSelect={cat => setServiceFilter(cat)}
+            size="sm"
+            ariaLabel="Mood shortcuts rail"
+            className="mb-2"
+          />
 
           {/* Proof points */}
           <div className="mt-4 pt-3 flex flex-wrap items-center gap-3 sm:gap-6 border-t text-[11px]" style={{ borderColor: 'var(--border)' }}>
@@ -439,23 +423,17 @@ export default function HomePage({
           title="Featured Experiences & Services"
           subtitle={`Verified stays, activities, and dining across ${selectedDestination || 'Namibia'}.`}
           badge={
-            <ScrollRail gap="sm" fadeEdges className="max-w-md">
-              {['All', 'Stay', 'Activity', 'Food', 'Guide', 'Shop'].map(cat => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setServiceFilter(cat)}
-                  className="px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 cursor-pointer transition-all"
-                  style={{
-                    background: serviceFilter === cat ? 'var(--primary)' : 'var(--surface)',
-                    color: serviceFilter === cat ? '#fff' : 'var(--fg-muted)',
-                    border: `1px solid ${serviceFilter === cat ? 'var(--primary)' : 'var(--border)'}`,
-                  }}
-                >
-                  {cat === 'All' ? 'All Services' : cat}
-                </button>
-              ))}
-            </ScrollRail>
+            <FilterChipRail
+              items={['All', 'Stay', 'Activity', 'Food', 'Guide', 'Shop'].map(cat => ({
+                id: cat,
+                label: cat === 'All' ? 'All Services' : cat,
+              }))}
+              selected={serviceFilter}
+              onSelect={setServiceFilter}
+              size="sm"
+              ariaLabel="Featured services filter rail"
+              className="max-w-md"
+            />
           }
         />
 

@@ -11,7 +11,15 @@ import TransportDetailPage from './TransportDetailPage'
 import { fetchPublicListings } from '../api/listingClient'
 import { listingToTransportResult } from '../api/homeClient'
 import { SkeletonCard } from '../components/SectionStates'
-import { ScrollRail, SectionEmpty, TravelerAvatar, SaveButton } from '../components/shared'
+import {
+  ScrollRail,
+  SectionEmpty,
+  TravelerAvatar,
+  SaveButton,
+  CategoryHighlightRail,
+  FilterChipRail,
+  ExpandableSearchFilter,
+} from '../components/shared'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -36,13 +44,13 @@ const modeIcon: Record<string, React.ReactNode> = {
 // ─── Highlights (categories) ──────────────────────────────────────────────
 
 const highlights = [
-  { id: 'h0', label: 'All', icon: <Navigation size={20} className="flex-shrink-0" />, color: '#8C52FF' },
-  { id: 'h1', label: 'Car rental', icon: <Car size={20} className="flex-shrink-0" />, color: '#E05C1A' },
-  { id: 'h2', label: 'Rides', icon: <Users size={20} className="flex-shrink-0" />, color: '#10A760' },
-  { id: 'h3', label: 'Bus', icon: <Bus size={20} className="flex-shrink-0" />, color: '#F59E0B' },
-  { id: 'h4', label: 'Flights', icon: <Plane size={20} className="flex-shrink-0" />, color: '#3B82F6' },
-  { id: 'h5', label: 'Ferry', icon: <Anchor size={20} className="flex-shrink-0" />, color: '#06B6D4' },
-  { id: 'h6', label: 'Transfer', icon: <Truck size={20} className="flex-shrink-0" />, color: '#6366F1' },
+  { id: 'All', label: 'All', icon: <Navigation size={20} className="flex-shrink-0" />, color: '#8C52FF' },
+  { id: 'Car rental', label: 'Car rental', icon: <Car size={20} className="flex-shrink-0" />, color: '#E05C1A' },
+  { id: 'Rides', label: 'Rides', icon: <Users size={20} className="flex-shrink-0" />, color: '#10A760' },
+  { id: 'Bus', label: 'Bus', icon: <Bus size={20} className="flex-shrink-0" />, color: '#F59E0B' },
+  { id: 'Flights', label: 'Flights', icon: <Plane size={20} className="flex-shrink-0" />, color: '#3B82F6' },
+  { id: 'Ferry', label: 'Ferry', icon: <Anchor size={20} className="flex-shrink-0" />, color: '#06B6D4' },
+  { id: 'Transfer', label: 'Transfer', icon: <Truck size={20} className="flex-shrink-0" />, color: '#6366F1' },
 ]
 
 // ─── Expandable search ────────────────────────────────────────────────────
@@ -75,161 +83,76 @@ function TransportSearch({
 }: {
   onSearch?: (from: string, to: string) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const [activeField, setActiveField] = useState<ActiveField>(null)
   const [search, setSearch] = useState<SearchState>({ from: '', to: '', date: '', passengers: 1 })
-  const cardRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
-        setActiveField(null)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
 
   function clear() {
     setSearch({ from: '', to: '', date: '', passengers: 1 })
-    setActiveField(null)
     onSearch?.('', '')
   }
 
   function handleTriggerSearch() {
-    setActiveField(null)
-    setOpen(false)
     onSearch?.(search.from, search.to)
   }
 
-  const hasSearch = Boolean(search.from || search.to || search.date || search.passengers > 1)
+  const summaryTitle =
+    search.from && search.to
+      ? `${search.from} → ${search.to}`
+      : search.from
+        ? `From ${search.from}`
+        : search.to
+          ? `To ${search.to}`
+          : 'Where are you traveling in Namibia?'
+
+  const summarySubtitle = [
+    search.date || 'Any date',
+    `${search.passengers} traveler${search.passengers !== 1 ? 's' : ''}`,
+  ].join(' · ')
 
   return (
-    <div ref={cardRef} className="mb-4">
-      {!open ? (
-        <button
-          onClick={() => setOpen(true)}
-          className="w-full flex items-center justify-between p-3.5 sm:p-4 rounded-2xl transition-all cursor-pointer text-left"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-          }}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(140,82,255,0.1)', color: 'var(--primary)' }}
-            >
-              <Search size={18} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold truncate m-0" style={{ color: 'var(--fg)' }}>
-                {search.from && search.to ? `${search.from} → ${search.to}` :
-                 search.from ? `From ${search.from}` :
-                 search.to ? `To ${search.to}` :
-                 'Where are you traveling in Namibia?'}
-              </p>
-              <p className="text-xs truncate m-0" style={{ color: 'var(--fg-muted)' }}>
-                {[search.date || 'Any date', `${search.passengers} traveler${search.passengers !== 1 ? 's' : ''}`].join(' · ')}
-              </p>
-            </div>
-          </div>
-          <span
-            className="text-xs font-semibold px-3 py-1.5 rounded-xl flex-shrink-0"
-            style={{ background: 'var(--surface-subtle)', color: 'var(--primary)', border: '1px solid var(--border)' }}
-          >
-            Search
-          </span>
-        </button>
-      ) : (
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{ background: 'var(--surface)', border: '1.5px solid var(--primary)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
-        >
-          {/* Inputs bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0" style={{ borderColor: 'var(--border)' }}>
-            <div className="p-3">
-              <label className="text-[10px] font-bold uppercase tracking-wider block mb-1" style={{ color: 'var(--fg-muted)' }}>From</label>
-              <input
-                type="text"
-                placeholder="Origin city"
-                value={search.from}
-                onChange={e => setSearch(s => ({ ...s, from: e.target.value }))}
-                className="w-full bg-transparent text-xs font-semibold outline-none border-none p-0"
-                style={{ color: 'var(--fg)' }}
-              />
-            </div>
-            <div className="p-3">
-              <label className="text-[10px] font-bold uppercase tracking-wider block mb-1" style={{ color: 'var(--fg-muted)' }}>To</label>
-              <input
-                type="text"
-                placeholder="Destination"
-                value={search.to}
-                onChange={e => setSearch(s => ({ ...s, to: e.target.value }))}
-                className="w-full bg-transparent text-xs font-semibold outline-none border-none p-0"
-                style={{ color: 'var(--fg)' }}
-              />
-            </div>
-            <div className="p-3">
-              <label className="text-[10px] font-bold uppercase tracking-wider block mb-1" style={{ color: 'var(--fg-muted)' }}>Date</label>
-              <input
-                type="text"
-                placeholder="When?"
-                value={search.date}
-                onChange={e => setSearch(s => ({ ...s, date: e.target.value }))}
-                className="w-full bg-transparent text-xs font-semibold outline-none border-none p-0"
-                style={{ color: 'var(--fg)' }}
-              />
-            </div>
-            <div className="p-3 flex items-center justify-between">
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider block mb-1" style={{ color: 'var(--fg-muted)' }}>Travelers</label>
-                <span className="text-xs font-bold" style={{ color: 'var(--fg)' }}>{search.passengers}</span>
-              </div>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => setSearch(s => ({ ...s, passengers: Math.max(1, s.passengers - 1) }))}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer"
-                  style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
-                >
-                  <Minus size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSearch(s => ({ ...s, passengers: Math.min(20, s.passengers + 1) }))}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer"
-                  style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border)', color: 'var(--fg)' }}
-                >
-                  <Plus size={12} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: 'var(--border)' }}>
-            <button type="button" onClick={clear} className="text-xs font-semibold underline cursor-pointer" style={{ color: 'var(--fg-muted)', background: 'none', border: 'none' }}>
-              Clear
-            </button>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setOpen(false)} className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer" style={{ background: 'var(--surface-subtle)', color: 'var(--fg)', border: '1px solid var(--border)' }}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleTriggerSearch}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold cursor-pointer"
-                style={{ background: 'var(--primary)', color: '#fff', border: 'none' }}
-              >
-                <Search size={13} />
-                <span>Search</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <ExpandableSearchFilter
+      summaryTitle={summaryTitle}
+      summarySubtitle={summarySubtitle}
+      fields={[
+        {
+          id: 'from',
+          label: 'From',
+          placeholder: 'Origin city',
+          value: search.from,
+          onChange: v => setSearch(s => ({ ...s, from: v })),
+          suggestions: popularPlaces,
+        },
+        {
+          id: 'to',
+          label: 'To',
+          placeholder: 'Destination',
+          value: search.to,
+          onChange: v => setSearch(s => ({ ...s, to: v })),
+          suggestions: popularPlaces,
+        },
+        {
+          id: 'date',
+          label: 'Date',
+          placeholder: 'When?',
+          value: search.date,
+          onChange: v => setSearch(s => ({ ...s, date: v })),
+          suggestions: upcomingDates.map(d => d.label),
+        },
+        {
+          id: 'passengers',
+          label: 'Travelers',
+          placeholder: '1',
+          type: 'stepper',
+          value: search.passengers,
+          min: 1,
+          max: 20,
+          unitLabel: 'traveler',
+          onChange: v => setSearch(s => ({ ...s, passengers: v })),
+        },
+      ]}
+      onSearch={handleTriggerSearch}
+      onClear={clear}
+      searchButtonLabel="Search"
+    />
   )
 }
 
@@ -431,63 +354,24 @@ export default function TransportPage({
       />
 
       {/* Mode highlights */}
-      <div
-        className="mb-3 sm:mb-4 sm:rounded-2xl overflow-hidden"
-        style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}
-      >
-        <ScrollRail gap="sm" fadeEdges ariaLabel="Transport categories rail" className="px-3 sm:px-4 py-3">
-          {highlights.map(h => {
-            const active = activeHighlight === h.label
-            return (
-              <button
-                key={h.id}
-                type="button"
-                onClick={() => setActiveHighlight(h.label)}
-                className="flex flex-col items-center gap-1.5 flex-shrink-0 active:opacity-70 transition-opacity cursor-pointer"
-                style={{ minWidth: 60, background: 'none', border: 'none' }}
-              >
-                <div
-                  className="p-0.5 rounded-full"
-                  style={{ background: active ? h.color : 'var(--border)' }}
-                >
-                  <div
-                    className="w-[60px] h-[60px] rounded-full flex items-center justify-center"
-                    style={{ background: active ? `${h.color}22` : 'var(--surface-subtle)', border: '2px solid var(--surface)' }}
-                  >
-                    <span style={{ color: active ? h.color : 'var(--fg-muted)' }}>{h.icon}</span>
-                  </div>
-                </div>
-                <span className="text-xs font-medium text-center leading-tight" style={{ color: active ? 'var(--fg)' : 'var(--fg-muted)', maxWidth: 64 }}>
-                  {h.label}
-                </span>
-              </button>
-            )
-          })}
-        </ScrollRail>
-      </div>
+      <CategoryHighlightRail
+        items={highlights}
+        selectedId={activeHighlight}
+        onSelect={setActiveHighlight}
+        className="mb-3 sm:mb-4 sm:rounded-2xl"
+        ariaLabel="Transport categories rail"
+      />
 
       {/* Quick needs chips */}
-      <ScrollRail gap="sm" fadeEdges ariaLabel="Quick filter needs rail" className="mb-3 sm:mb-4 px-3 sm:px-0">
-        {quickNeeds.slice(0, 6).map(need => {
-          const active = activeQuickNeeds.has(need)
-          return (
-            <button
-              key={need}
-              type="button"
-              onClick={() => toggleQuickNeed(need)}
-              className="flex-shrink-0 px-3.5 py-2 rounded-full text-sm font-medium transition-all cursor-pointer"
-              style={{
-                background: active ? 'var(--primary)' : 'var(--surface)',
-                color: active ? '#fff' : 'var(--fg-muted)',
-                border: `1px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
-                minHeight: 40,
-              }}
-            >
-              {need}
-            </button>
-          )
-        })}
-      </ScrollRail>
+      <FilterChipRail
+        items={quickNeeds.slice(0, 6).map(need => ({ id: need, label: need }))}
+        selected={activeQuickNeeds}
+        onSelect={toggleQuickNeed}
+        mode="multi"
+        onClearAll={() => setActiveQuickNeeds(new Set())}
+        className="mb-3 sm:mb-4"
+        ariaLabel="Quick filter needs rail"
+      />
 
       {loading ? (
         <div className="flex flex-col gap-3 sm:gap-4">

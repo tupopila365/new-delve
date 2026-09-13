@@ -9,7 +9,7 @@ import FeaturedEvent from '../components/events/FeaturedEvent'
 import EventsPageSkeleton from '../components/events/EventsPageSkeleton'
 import { EVENT_CATEGORIES, QUICK_FILTERS, type QuickFilterId } from '../components/events/eventCategories'
 import { applyDiscoverFilters, pickFeaturedEvent } from '../components/events/eventFilters'
-import { SectionHeader, ScrollRail, SectionEmpty, EventCard } from '../components/shared'
+import { SectionHeader, ScrollRail, SectionEmpty, EventCard, FilterChipRail } from '../components/shared'
 
 type Tab = 'discover' | 'hosting' | 'attending'
 
@@ -161,12 +161,6 @@ export default function EventsPage({
     return 'No upcoming events yet.'
   }, [tab, quickFilter, signedIn, debouncedSearch, category, nearbyCity])
 
-  const chipStyle = (active: boolean) => ({
-    border: `1px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
-    background: active ? 'rgba(140,82,255,0.12)' : 'var(--surface)',
-    color: active ? 'var(--primary)' : 'var(--fg)',
-    cursor: 'pointer' as const,
-  })
 
   return (
     <div className="pb-4">
@@ -232,51 +226,33 @@ export default function EventsPage({
             </div>
           </div>
 
-          <div className="px-3 sm:px-0 py-2">
-            <ScrollRail gap="sm" fadeEdges ariaLabel="Event quick filters">
-              {QUICK_FILTERS.map(f => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => {
-                    if (f.id === 'following' && !signedIn) {
-                      onSignIn?.()
-                      return
-                    }
-                    setQuickFilter(f.id)
-                  }}
-                  className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
-                  style={chipStyle(quickFilter === f.id)}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </ScrollRail>
-          </div>
+          <FilterChipRail
+            items={QUICK_FILTERS.map(f => ({ id: f.id, label: f.label }))}
+            selected={quickFilter}
+            onSelect={id => {
+              if (id === 'following' && !signedIn) {
+                onSignIn?.()
+                return
+              }
+              setQuickFilter(id as QuickFilterId)
+            }}
+            size="sm"
+            ariaLabel="Event quick filters"
+            className="py-1"
+          />
 
-          <div className="px-3 sm:px-0 pb-3">
-            <ScrollRail gap="sm" fadeEdges ariaLabel="Event categories">
-              <button
-                type="button"
-                onClick={() => setCategory(null)}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
-                style={chipStyle(!category)}
-              >
-                All categories
-              </button>
-              {EVENT_CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setCategory(prev => (prev === cat ? null : cat))}
-                  className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap min-h-[36px]"
-                  style={chipStyle(category === cat)}
-                >
-                  {cat}
-                </button>
-              ))}
-            </ScrollRail>
-          </div>
+          <FilterChipRail
+            items={[
+              { id: '', label: 'All categories' },
+              ...EVENT_CATEGORIES.map(cat => ({ id: cat, label: cat })),
+            ]}
+            selected={category || ''}
+            onSelect={id => setCategory(id === '' || id === category ? null : id)}
+            onClearAll={category ? () => setCategory(null) : undefined}
+            size="sm"
+            ariaLabel="Event categories"
+            className="pb-3"
+          />
         </>
       )}
 

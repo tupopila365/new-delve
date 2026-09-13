@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Search, Tag, X } from 'lucide-react'
 import DealCatalogDetail from '../components/deals/DealCatalogDetail'
 import { SkeletonCard } from '../components/SectionStates'
-import { SectionHeader, ScrollRail, SectionEmpty, DealCard } from '../components/shared'
+import { SectionHeader, ScrollRail, SectionEmpty, DealCard, FilterChipRail, FilterChip } from '../components/shared'
 import { formatMoney } from '../lib/formatMoney'
 import MyClaimsPage from './MyClaimsPage'
 import { fetchPublicDeals, fetchPublicDeal } from '../api/dealClient'
@@ -20,32 +20,6 @@ type SortFilter = 'all' | 'ending-soon' | 'discount'
 
 function hoursLeft(endIso: string) {
   return (new Date(endIso).getTime() - Date.now()) / (1000 * 60 * 60)
-}
-
-function Chip({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean
-  label: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all active:scale-95"
-      style={{
-        background: active ? 'var(--primary)' : 'var(--surface)',
-        color: active ? '#fff' : 'var(--fg)',
-        border: `1px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
-        cursor: 'pointer',
-      }}
-    >
-      {label}
-    </button>
-  )
 }
 
 export default function DealsPage({
@@ -191,7 +165,14 @@ export default function DealsPage({
               { id: 'mine', label: 'My claims' },
             ] as const
           ).map(opt => (
-            <Chip key={opt.id} active={tab === opt.id} label={opt.label} onClick={() => setTab(opt.id)} />
+            <FilterChip
+              key={opt.id}
+              active={tab === opt.id}
+              label={opt.label}
+              onClick={() => setTab(opt.id)}
+              variant="deal"
+              size="sm"
+            />
           ))}
         </div>
       </div>
@@ -223,40 +204,61 @@ export default function DealsPage({
             </div>
           </div>
 
-          <div className="px-4 sm:px-0 mb-3">
-            <ScrollRail gap="sm" fadeEdges>
-              <Chip active={sort === 'all'} label="All active" onClick={() => setSort('all')} />
-              <Chip active={sort === 'discount'} label="Highest discount" onClick={() => setSort('discount')} />
-              <Chip active={sort === 'ending-soon'} label="Ending soon" onClick={() => setSort('ending-soon')} />
-            </ScrollRail>
-          </div>
+          <FilterChipRail
+            items={[
+              { id: 'all', label: 'All active' },
+              { id: 'discount', label: 'Highest discount' },
+              { id: 'ending-soon', label: 'Ending soon' },
+            ]}
+            selected={sort}
+            onSelect={s => setSort(s as SortFilter)}
+            variant="deal"
+            size="sm"
+            ariaLabel="Deal sort options"
+            className="mb-3"
+          />
 
-          <div className="px-4 sm:px-0 mb-3">
-            <ScrollRail gap="sm" fadeEdges>
-              <Chip active={!audienceFilter} label="All travelers" onClick={() => setAudienceFilter('')} />
-              {DEAL_AUDIENCES.map(a => (
-                <Chip key={a} active={audienceFilter === a} label={a} onClick={() => setAudienceFilter(a)} />
-              ))}
-            </ScrollRail>
-          </div>
+          <FilterChipRail
+            items={[
+              { id: '', label: 'All travelers' },
+              ...DEAL_AUDIENCES.map(a => ({ id: a, label: a })),
+            ]}
+            selected={audienceFilter}
+            onSelect={a => setAudienceFilter(a as DealAudience | '')}
+            onClearAll={audienceFilter ? () => setAudienceFilter('') : undefined}
+            variant="deal"
+            size="sm"
+            ariaLabel="Deal audience filter"
+            className="mb-3"
+          />
 
-          <div className="px-4 sm:px-0 mb-3">
-            <ScrollRail gap="sm" fadeEdges>
-              <Chip active={!cityFilter} label="All destinations" onClick={() => setCityFilter('')} />
-              {DEAL_CITIES.map(city => (
-                <Chip key={city} active={cityFilter === city} label={city} onClick={() => setCityFilter(city)} />
-              ))}
-            </ScrollRail>
-          </div>
+          <FilterChipRail
+            items={[
+              { id: '', label: 'All destinations' },
+              ...DEAL_CITIES.map(city => ({ id: city, label: city })),
+            ]}
+            selected={cityFilter}
+            onSelect={c => setCityFilter(c)}
+            onClearAll={cityFilter ? () => setCityFilter('') : undefined}
+            variant="deal"
+            size="sm"
+            ariaLabel="Deal destination filter"
+            className="mb-3"
+          />
 
-          <div className="px-4 sm:px-0 mb-4">
-            <ScrollRail gap="sm" fadeEdges>
-              <Chip active={!categoryFilter} label="All categories" onClick={() => setCategoryFilter('')} />
-              {DEAL_SERVICE_CATEGORIES.map(cat => (
-                <Chip key={cat} active={categoryFilter === cat} label={cat} onClick={() => setCategoryFilter(cat)} />
-              ))}
-            </ScrollRail>
-          </div>
+          <FilterChipRail
+            items={[
+              { id: '', label: 'All categories' },
+              ...DEAL_SERVICE_CATEGORIES.map(cat => ({ id: cat, label: cat })),
+            ]}
+            selected={categoryFilter}
+            onSelect={c => setCategoryFilter(c)}
+            onClearAll={categoryFilter ? () => setCategoryFilter('') : undefined}
+            variant="deal"
+            size="sm"
+            ariaLabel="Deal category filter"
+            className="mb-4"
+          />
 
           {featured.length > 0 && sort === 'all' && !query.trim() && !cityFilter && !categoryFilter && !audienceFilter && (
             <div className="px-4 sm:px-0 mb-4">

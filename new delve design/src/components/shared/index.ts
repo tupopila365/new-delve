@@ -33,6 +33,19 @@ export type { EventCardProps, AttendanceStatus } from './EventCard'
 export { default as JourneyCard } from './JourneyCard'
 export type { JourneyCardProps, JourneyCreator } from './JourneyCard'
 
+// Phase 3: Universal Filter & Selection Suite
+export { default as CategoryHighlightRail } from './CategoryHighlightRail'
+export type { CategoryHighlightRailProps, CategoryHighlightItem } from './CategoryHighlightRail'
+
+export { default as FilterChip } from './FilterChip'
+export type { FilterChipProps, FilterChipVariant } from './FilterChip'
+
+export { default as FilterChipRail } from './FilterChipRail'
+export type { FilterChipRailProps, FilterChipItem } from './FilterChipRail'
+
+export { default as ExpandableSearchFilter } from './ExpandableSearchFilter'
+export type { ExpandableSearchFilterProps, SearchFilterField } from './ExpandableSearchFilter'
+
 // Phase 4: Responsive Overlays
 export { default as ResponsiveSheet } from './ResponsiveSheet'
 export type { ResponsiveSheetProps } from './ResponsiveSheet'

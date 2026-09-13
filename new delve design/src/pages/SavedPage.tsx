@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Bookmark, Calendar, Image as ImageIcon, MapPin, MessageCircle } from 'lucide-react'
 import type { SaveDto } from '@delve/contracts'
 import { fetchSaves, unsaveItem } from '../api/socialClient'
-import { SectionHeader, ScrollRail, SectionEmpty, SaveButton, ConfirmDialog } from '../components/shared'
+import { SectionHeader, ScrollRail, SectionEmpty, SaveButton, ConfirmDialog, FilterChipRail } from '../components/shared'
 
 interface SavedPageProps {
   onOpenPostAuthor?: (username: string) => void
@@ -87,31 +87,21 @@ export default function SavedPage({
           icon={<Bookmark size={20} />}
         />
 
-        <ScrollRail gap="sm" fadeEdges className="mt-2">
-          {([
-            { key: 'ALL' as const, label: 'All' },
-            { key: 'POST' as const, label: 'Posts' },
-            { key: 'COMMUNITY_THREAD' as const, label: 'Community' },
-            { key: 'EVENT' as const, label: 'Events' },
-            { key: 'JOURNEY' as const, label: 'Journeys' },
-            { key: 'DEAL' as const, label: 'Deals' },
-          ]).map(tab => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setFilter(tab.key)}
-              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-150 active:scale-95"
-              style={{
-                border: `1px solid ${filter === tab.key ? 'var(--primary)' : 'var(--border)'}`,
-                background: filter === tab.key ? 'var(--primary)' : 'var(--surface)',
-                color: filter === tab.key ? '#fff' : 'var(--fg)',
-                cursor: 'pointer',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </ScrollRail>
+        <FilterChipRail
+          items={[
+            { id: 'ALL', label: 'All' },
+            { id: 'POST', label: 'Posts' },
+            { id: 'COMMUNITY_THREAD', label: 'Community' },
+            { id: 'EVENT', label: 'Events' },
+            { id: 'JOURNEY', label: 'Journeys' },
+            { id: 'DEAL', label: 'Deals' },
+          ]}
+          selected={filter}
+          onSelect={key => setFilter(key as typeof filter)}
+          size="sm"
+          ariaLabel="Saved item categories"
+          className="mt-2"
+        />
       </div>
 
       {loading && (

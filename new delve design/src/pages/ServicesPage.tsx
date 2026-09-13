@@ -3,7 +3,7 @@ import { Building2, CheckCircle, MapPin, Search, Tag, X } from 'lucide-react'
 import type { ListingPublicDto } from '@delve/contracts'
 import { fetchPublicListings } from '../api/listingClient'
 import { SkeletonCard, SectionError } from '../components/SectionStates'
-import { SectionHeader, ScrollRail, SectionEmpty, ListingCard } from '../components/shared'
+import { SectionHeader, ScrollRail, SectionEmpty, ListingCard, FilterChipRail } from '../components/shared'
 import { formatMoney } from '../lib/formatMoney'
 import SafeImage from '../components/mobile/SafeImage'
 import ServiceDetailPage from './ServiceDetailPage'
@@ -189,48 +189,33 @@ export default function ServicesPage({
         </div>
       </div>
 
-      <div className="px-4 sm:px-0 mb-3">
-        <ScrollRail gap="sm" fadeEdges ariaLabel="Service categories">
-          {(categories.length > 1 ? categories : ['All']).map(cat => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setActiveCategory(cat)}
-              className="flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
-              style={{
-                background: activeCategory === cat ? 'var(--primary)' : 'var(--surface)',
-                color: activeCategory === cat ? '#fff' : 'var(--fg)',
-                border: `1px solid ${activeCategory === cat ? 'var(--primary)' : 'var(--border)'}`,
-              }}
-            >
-              <Tag size={11} />
-              {cat}
-            </button>
-          ))}
-        </ScrollRail>
-      </div>
+      <FilterChipRail
+        items={(categories.length > 1 ? categories : ['All']).map(cat => ({
+          id: cat,
+          label: cat,
+          icon: <Tag size={12} />,
+        }))}
+        selected={activeCategory}
+        onSelect={setActiveCategory}
+        size="sm"
+        ariaLabel="Service categories"
+        className="mb-3"
+      />
 
       {cities.length > 0 && (
-        <div className="px-4 sm:px-0 mb-4">
-          <ScrollRail gap="sm" fadeEdges ariaLabel="Cities filter">
-            {cities.map(city => (
-              <button
-                key={city}
-                type="button"
-                onClick={() => setActiveDestination(activeDestination === city ? null : city)}
-                className="flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
-                style={{
-                  background: activeDestination === city ? 'rgba(16,167,96,0.12)' : 'var(--surface)',
-                  color: activeDestination === city ? '#0F8A52' : 'var(--fg-muted)',
-                  border: `1px solid ${activeDestination === city ? 'rgba(16,167,96,0.35)' : 'var(--border)'}`,
-                }}
-              >
-                <MapPin size={11} />
-                {city}
-              </button>
-            ))}
-          </ScrollRail>
-        </div>
+        <FilterChipRail
+          items={cities.map(city => ({
+            id: city,
+            label: city,
+            icon: <MapPin size={12} />,
+          }))}
+          selected={activeDestination || ''}
+          onSelect={city => setActiveDestination(activeDestination === city ? null : city)}
+          onClearAll={activeDestination ? () => setActiveDestination(null) : undefined}
+          size="sm"
+          ariaLabel="Cities filter"
+          className="mb-4"
+        />
       )}
 
       {(activeCategory !== 'All' || activeDestination || query) && (
